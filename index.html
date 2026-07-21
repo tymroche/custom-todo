@@ -4,6 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Field Notes — To-Do</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2F6F4F">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Field Notes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -97,6 +103,23 @@
     font-size: 13px;
     margin-top: 14px;
     display: none;
+  }
+  .auth-toggle {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 18px;
+    text-align: center;
+  }
+  .link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: inherit;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: underline;
   }
 
   .app-shell {
@@ -546,8 +569,8 @@
 
 <div class="login-card" id="login-card" style="display:none;">
   <p class="brand"><span class="dot"></span>FIELD NOTES</p>
-  <h2>Sign in</h2>
-  <p class="sub">This list only syncs to your own account.</p>
+  <h2 id="login-title">Sign in</h2>
+  <p class="sub">Everyone gets their own private list.</p>
   <form id="login-form">
     <label class="field-label" for="email">Email</label>
     <input type="email" id="email" required autocomplete="username" />
@@ -556,6 +579,7 @@
     <button type="submit" class="btn-primary full" id="login-btn">Sign in</button>
     <p id="login-error"></p>
   </form>
+  <p class="auth-toggle" id="auth-toggle-text"></p>
 </div>
 
 <div class="app-shell" id="app-shell" style="display:none;">
@@ -619,11 +643,12 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+    getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+    onAuthStateChanged, signOut
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, collection, addDoc, onSnapshot, doc, updateDoc,
-    deleteDoc, serverTimestamp
+    deleteDoc, serverTimestamp, query, where, enableIndexedDbPersistence
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -639,6 +664,15 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
+  // Best-effort offline cache; harmless if unsupported or blocked by another tab.
+  enableIndexedDbPersistence(db).catch(() => {});
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
   // ---------------- Theme ----------------
   const root = document.documentElement;
   const themeToggle = document.getElementById('theme-toggle');
@@ -653,18 +687,64 @@
   const loginCard = document.getElementById('login-card');
   const appShell = document.getElementById('app-shell');
   const loginForm = document.getElementById('login-form');
+  const loginTitle = document.getElementById('login-title');
   const loginBtn = document.getElementById('login-btn');
   const loginError = document.getElementById('login-error');
+  const authToggleText = document.getElementById('auth-toggle-text');
   const signoutBtn = document.getElementById('signout-btn');
 
   let unsubCategories = null;
   let unsubTodos = null;
+  let authMode = 'signin';
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    loginError.style.display = 'none';
+    authToggleText.innerHTML = '';
+    const span = document.createElement('span');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'link-btn';
+    if (mode === 'signin') {
+      loginTitle.textContent = 'Sign in';
+      loginBtn.textContent = 'Sign in';
+      span.textContent = 'New here? ';
+      btn.textContent = 'Create an account';
+      btn.addEventListener('click', () => setAuthMode('signup'));
+    } else {
+      loginTitle.textContent = 'Create your account';
+      loginBtn.textContent = 'Create account';
+      span.textContent = 'Already have an account? ';
+      btn.textContent = 'Sign in';
+      btn.addEventListener('click', () => setAuthMode('signin'));
+    }
+    authToggleText.appendChild(span);
+    authToggleText.appendChild(btn);
+  }
+  setAuthMode('signin');
+
+  function friendlyAuthError(err) {
+    switch (err.code) {
+      case 'auth/email-already-in-use':
+        return "An account with that email already exists — try signing in instead.";
+      case 'auth/weak-password':
+        return 'Password should be at least 6 characters.';
+      case 'auth/invalid-email':
+        return "That doesn't look like a valid email address.";
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return 'Could not sign in. Check your email and password.';
+      default:
+        return err.message;
+    }
+  }
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
       loginCard.style.display = 'none';
       appShell.style.display = 'flex';
-      attachListeners();
+      attachListeners(user.uid);
     } else {
       appShell.style.display = 'none';
       loginCard.style.display = 'block';
@@ -680,17 +760,21 @@
     e.preventDefault();
     loginError.style.display = 'none';
     loginBtn.disabled = true;
-    loginBtn.textContent = 'Signing in…';
+    loginBtn.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      if (authMode === 'signin') {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
     } catch (err) {
-      loginError.textContent = 'Could not sign in. Check your email and password.';
+      loginError.textContent = friendlyAuthError(err);
       loginError.style.display = 'block';
     } finally {
       loginBtn.disabled = false;
-      loginBtn.textContent = 'Sign in';
+      loginBtn.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
     }
   });
 
@@ -756,8 +840,9 @@
   }
 
   // ---------------- Firestore listeners ----------------
-  function attachListeners() {
-    unsubCategories = onSnapshot(collection(db, 'categories'), (snap) => {
+  function attachListeners(uid) {
+    const categoriesQuery = query(collection(db, 'categories'), where('uid', '==', uid));
+    unsubCategories = onSnapshot(categoriesQuery, (snap) => {
       categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (!currentView) {
         const roots = categories.filter(c => !c.parentId).sort(byCreatedAt);
@@ -767,7 +852,8 @@
       render();
     }, (err) => showError(`Couldn't load categories: ${err.message}`));
 
-    unsubTodos = onSnapshot(collection(db, 'todos'), (snap) => {
+    const todosQuery = query(collection(db, 'todos'), where('uid', '==', uid));
+    unsubTodos = onSnapshot(todosQuery, (snap) => {
       todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       render();
     }, (err) => showError(`Couldn't load tasks: ${err.message}`));
@@ -779,7 +865,7 @@
     if (!name || !name.trim()) return;
     try {
       const newDoc = await addDoc(collection(db, 'categories'), {
-        name: name.trim(), parentId: parentId || null, createdAt: serverTimestamp()
+        name: name.trim(), parentId: parentId || null, uid: auth.currentUser.uid, createdAt: serverTimestamp()
       });
       currentView = { type: 'category', value: newDoc.id };
     } catch (err) {
@@ -854,6 +940,7 @@
         text: value,
         done: false,
         categoryId: currentView.value,
+        uid: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         dueDate: dueDate,
         priority: 'blank'
