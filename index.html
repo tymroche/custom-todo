@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Field Notes — To-Do</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EEF1EF;
+    --surface: #FFFFFF;
+    --sidebar: #F5F7F6;
+    --ink: #14201B;
+    --ink-soft: #5B6B63;
+    --ink-faint: #93A29B;
+    --accent: #2F6F4F;
+    --accent-dark: #204E37;
+    --accent-soft: #E4EFE8;
+    --border: #DCE4DF;
+    --danger: #B3453D;
+    --danger-soft: #F7E8E6;
+    --toggle-off: #D7DEDA;
+    --input-bg: #FBFCFB;
+    --shadow: rgba(20, 32, 27, 0.08);
+
+    --p-low-fg: #3D5A78;    --p-low-bg: #E4ECF3;
+    --p-medium-fg: #8C5A16; --p-medium-bg: #F5E8D3;
+    --p-high-fg: #8C4322;   --p-high-bg: #F5E0D3;
+    --p-urgent-fg: #7A2A26; --p-urgent-bg: #F5DEDC;
+  }
+
+  :root.dark {
+    --bg: #0D1210;
+    --surface: #151C19;
+    --sidebar: #111714;
+    --ink: #E6EDE9;
+    --ink-soft: #9BAAA3;
+    --ink-faint: #5F6E67;
+    --accent: #46B27D;
+    --accent-dark: #6FCB9C;
+    --accent-soft: #1C3328;
+    --border: #253029;
+    --danger: #E58A7D;
+    --danger-soft: #3A211D;
+    --toggle-off: #2B3733;
+    --input-bg: #0F1512;
+    --shadow: rgba(0, 0, 0, 0.35);
+
+    --p-low-fg: #9CC3EE;    --p-low-bg: #1E2A38;
+    --p-medium-fg: #F0C27E; --p-medium-bg: #362A16;
+    --p-high-fg: #F0A57C;   --p-high-bg: #3A2416;
+    --p-urgent-fg: #F5A99C; --p-urgent-bg: #3A1E1C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 5vh 20px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* ---------- Login screen ---------- */
+  .login-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+    box-shadow: 0 1px 2px var(--shadow);
+  }
+  .login-card h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    margin: 4px 0 4px;
+    color: var(--ink);
+  }
+  .login-card p.sub { color: var(--ink-soft); font-size: 13.5px; margin: 0 0 24px; }
+  .field-label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin: 16px 0 6px;
+  }
+  #login-error {
+    color: var(--danger);
+    font-size: 13px;
+    margin-top: 14px;
+    display: none;
+  }
+
+  .app-shell {
+    width: 100%;
+    max-width: 920px;
+    min-height: 560px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px var(--shadow);
+    display: flex;
+    overflow: hidden;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  .brand .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .brand-actions { display: flex; align-items: center; gap: 2px; }
+
+  .theme-toggle, .signout-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12.5px;
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: 5px;
+    color: var(--ink-soft);
+  }
+  .theme-toggle:hover, .signout-btn:hover { background: var(--border); }
+
+  .all-tasks-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .all-tasks-row:hover { background: var(--border); }
+  .all-tasks-row.active { background: var(--accent); color: white; }
+  .all-tasks-row .square {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: currentColor;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+
+  .sidebar-section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+    margin-bottom: 8px;
+  }
+
+  .sidebar-section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 5px;
+  }
+  .icon-btn:hover { background: var(--accent-soft); color: var(--accent-dark); }
+
+  ul#category-tree { list-style: none; margin: 0; padding: 0; }
+
+  .sidebar-empty {
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    padding: 4px;
+  }
+
+  .cat-node { list-style: none; }
+  .cat-children { list-style: none; padding: 0 0 0 16px; margin: 0; }
+
+  .cat-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .cat-row:hover { background: var(--border); }
+  .cat-row.active { background: var(--accent-soft); }
+  .cat-row.active .cat-name { color: var(--accent-dark); font-weight: 600; }
+
+  .caret, .caret-spacer {
+    width: 14px;
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--ink-faint);
+    text-align: center;
+    transition: transform 0.1s ease;
+    user-select: none;
+  }
+  .caret.collapsed { transform: rotate(-90deg); }
+
+  .cat-name {
+    flex: 1;
+    font-size: 13.5px;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .row-add-btn {
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    opacity: 0;
+  }
+  .cat-row:hover .row-add-btn { opacity: 1; }
+  .row-add-btn:hover { background: var(--accent); color: white; }
+
+  /* ---------- Main panel ---------- */
+  .main-panel {
+    flex: 1;
+    padding: 28px 32px;
+    min-width: 0;
+  }
+
+  .main-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  #view-title, #all-view-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--ink);
+  }
+
+  .tag-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin: 4px 0 20px;
+  }
+
+  .header-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .btn-ghost, .btn-ghost-danger {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--ink-soft);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .btn-ghost:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); }
+  .btn-ghost-danger:hover { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+
+  .option-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0 22px;
+  }
+  .option-label { font-size: 13px; color: var(--ink-soft); }
+
+  .status-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 6px;
+    margin-bottom: 18px;
+    letter-spacing: 0.01em;
+  }
+
+  .error-banner {
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .add-row { display: flex; gap: 8px; margin-bottom: 20px; }
+
+  input[type="text"], input[type="email"], input[type="password"], .add-row input[type="date"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--input-bg);
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .add-row input[type="text"] { flex: 1; width: auto; }
+  .add-row input[type="date"] { flex: 0 0 150px; width: auto; font-size: 13px; color: var(--ink-soft); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 0 18px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-primary:disabled { background: #A7B8AF; cursor: not-allowed; }
+  .btn-primary.full { width: 100%; margin-top: 22px; padding: 10px 0; }
+
+  ul#task-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  li.task {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  li.task:last-child { border-bottom: none; }
+
+  .toggle {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    flex-shrink: 0;
+    cursor: pointer;
+    margin-top: 2px;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle .track {
+    position: absolute;
+    inset: 0;
+    background: var(--toggle-off);
+    border-radius: 999px;
+    transition: background 0.15s ease;
+  }
+  .toggle .thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    transition: transform 0.15s ease;
+  }
+  .toggle input:checked + .track { background: var(--accent); }
+  .toggle input:checked + .track + .thumb { transform: translateX(14px); }
+  .toggle input:focus-visible + .track { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .task-body { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+  .task-top-row { display: flex; align-items: center; gap: 8px; }
+
+  .priority-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: 1.5px solid var(--ink-faint);
+    background: transparent;
+    transition: box-shadow 0.1s ease;
+  }
+  .priority-dot:hover { box-shadow: 0 0 0 4px var(--border); }
+
+  .priority-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: filter 0.1s ease;
+  }
+  .priority-badge:hover { filter: brightness(0.96); }
+  .priority-badge.priority-low { color: var(--p-low-fg); background: var(--p-low-bg); }
+  .priority-badge.priority-medium { color: var(--p-medium-fg); background: var(--p-medium-bg); }
+  .priority-badge.priority-high { color: var(--p-high-fg); background: var(--p-high-bg); }
+  .priority-badge.priority-urgent { color: var(--p-urgent-fg); background: var(--p-urgent-bg); }
+
+  .task-text { font-size: 14.5px; color: var(--ink); word-break: break-word; }
+  .task.done .task-text { color: var(--ink-soft); text-decoration: line-through; }
+
+  .task-meta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-left: 17px; }
+
+  .task-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+
+  .due-wrap { display: inline-flex; align-items: center; gap: 4px; }
+
+  .due-input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    background: transparent;
+    border: none;
+    padding: 1px 2px;
+    width: 100px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .due-input:hover { background: var(--border); }
+  .due-input:focus { outline: 1px solid var(--accent); background: var(--input-bg); }
+  .due-input.overdue { color: var(--danger); font-weight: 600; }
+  .due-input::-webkit-calendar-picker-indicator { filter: opacity(0.45); cursor: pointer; }
+  :root.dark .due-input::-webkit-calendar-picker-indicator { filter: invert(0.75) opacity(0.55); }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    opacity: 0;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: opacity 0.1s ease, color 0.1s ease;
+  }
+  li.task:hover .delete-btn { opacity: 1; }
+  .delete-btn:hover { color: var(--danger); }
+  .delete-btn:focus-visible { opacity: 1; outline: 2px solid var(--accent); }
+
+  .empty-state {
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    padding: 18px 4px;
+    text-align: center;
+  }
+
+  .main-placeholder {
+    color: var(--ink-faint);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 60px 0;
+    text-align: center;
+  }
+
+  @media (max-width: 640px) {
+    .app-shell { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    .add-row { flex-wrap: wrap; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="login-card" id="login-card" style="display:none;">
+  <p class="brand"><span class="dot"></span>FIELD NOTES</p>
+  <h2>Sign in</h2>
+  <p class="sub">This list only syncs to your own account.</p>
+  <form id="login-form">
+    <label class="field-label" for="email">Email</label>
+    <input type="email" id="email" required autocomplete="username" />
+    <label class="field-label" for="password">Password</label>
+    <input type="password" id="password" required autocomplete="current-password" />
+    <button type="submit" class="btn-primary full" id="login-btn">Sign in</button>
+    <p id="login-error"></p>
+  </form>
+</div>
+
+<div class="app-shell" id="app-shell" style="display:none;">
+
+  <div class="sidebar">
+    <div class="brand-row">
+      <p class="brand"><span class="dot"></span>FIELD NOTES</p>
+      <div class="brand-actions">
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+        <button class="signout-btn" id="signout-btn">Sign out</button>
+      </div>
+    </div>
+
+    <div class="all-tasks-row" id="all-tasks-btn"><span class="square"></span> All tasks</div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title-row">
+        <span class="sidebar-section-title">Categories</span>
+        <button class="icon-btn" id="add-category-btn" title="New category">+</button>
+      </div>
+      <ul id="category-tree"></ul>
+    </div>
+  </div>
+
+  <div class="main-panel">
+
+    <div id="category-header" style="display:none;">
+      <div class="main-title-row">
+        <h2 id="view-title"></h2>
+        <div class="header-actions">
+          <button class="btn-ghost" id="add-subcategory-btn">+ Subcategory</button>
+          <button class="btn-ghost" id="rename-category-btn">Rename</button>
+          <button class="btn-ghost-danger" id="delete-category-btn">Delete</button>
+        </div>
+      </div>
+      <div class="option-row" id="option-row" style="display:none;"></div>
+    </div>
+
+    <div id="all-header" style="display:none;">
+      <h2 id="all-view-title">All tasks</h2>
+      <p class="tag-subtitle">Every category, combined</p>
+    </div>
+
+    <span class="status-line" id="status-line" style="display:none;">SYSTEM READY</span>
+    <p class="error-banner" id="error-banner"></p>
+
+    <div class="add-row" id="add-row" style="display:none;">
+      <input type="text" id="new-task-input" placeholder="Add a task…" autocomplete="off" />
+      <input type="date" id="new-task-due" title="Due date (optional)" />
+      <button class="btn-primary" id="add-task-btn">Add</button>
+    </div>
+
+    <ul id="task-list"></ul>
+    <p class="empty-state" id="empty-state" style="display:none;"></p>
+    <p class="main-placeholder" id="main-placeholder">Create a category on the left to get started.</p>
+
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, addDoc, onSnapshot, doc, updateDoc,
+    deleteDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyChPUANLV2LBk3AVI401cP1AmZY1G535oY",
+    authDomain: "troche-todo.firebaseapp.com",
+    projectId: "troche-todo",
+    storageBucket: "troche-todo.firebasestorage.app",
+    messagingSenderId: "64868924253",
+    appId: "1:64868924253:web:e9f459c62fd92639fe46b4"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ---------------- Theme ----------------
+  const root = document.documentElement;
+  const themeToggle = document.getElementById('theme-toggle');
+  function applyTheme(isDark) {
+    root.classList.toggle('dark', isDark);
+    themeToggle.textContent = isDark ? '☀' : '🌙';
+  }
+  applyTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
+  themeToggle.addEventListener('click', () => applyTheme(!root.classList.contains('dark')));
+
+  // ---------------- Auth ----------------
+  const loginCard = document.getElementById('login-card');
+  const appShell = document.getElementById('app-shell');
+  const loginForm = document.getElementById('login-form');
+  const loginBtn = document.getElementById('login-btn');
+  const loginError = document.getElementById('login-error');
+  const signoutBtn = document.getElementById('signout-btn');
+
+  let unsubCategories = null;
+  let unsubTodos = null;
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      loginCard.style.display = 'none';
+      appShell.style.display = 'flex';
+      attachListeners();
+    } else {
+      appShell.style.display = 'none';
+      loginCard.style.display = 'block';
+      if (unsubCategories) { unsubCategories(); unsubCategories = null; }
+      if (unsubTodos) { unsubTodos(); unsubTodos = null; }
+      categories = [];
+      todos = [];
+      currentView = null;
+    }
+  });
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginError.style.display = 'none';
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Signing in…';
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      loginError.textContent = 'Could not sign in. Check your email and password.';
+      loginError.style.display = 'block';
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Sign in';
+    }
+  });
+
+  signoutBtn.addEventListener('click', () => signOut(auth));
+
+  // ---------------- In-memory state ----------------
+  let categories = [];
+  let todos = [];
+  let currentView = null;
+  const collapsed = new Set();
+  const includeSubcategories = new Map();
+  const PRIORITY_LEVELS = ['blank', 'low', 'medium', 'high', 'urgent'];
+
+  // ---------------- DOM refs ----------------
+  const errorBanner = document.getElementById('error-banner');
+  const statusLine = document.getElementById('status-line');
+  const taskList = document.getElementById('task-list');
+  const emptyState = document.getElementById('empty-state');
+  const mainPlaceholder = document.getElementById('main-placeholder');
+  const categoryHeader = document.getElementById('category-header');
+  const allHeader = document.getElementById('all-header');
+  const addRow = document.getElementById('add-row');
+  const newTaskInput = document.getElementById('new-task-input');
+  const newTaskDue = document.getElementById('new-task-due');
+  const addTaskBtn = document.getElementById('add-task-btn');
+  const allTasksBtn = document.getElementById('all-tasks-btn');
+
+  function showError(message) {
+    console.error(message);
+    errorBanner.textContent = message;
+    errorBanner.style.display = 'block';
+  }
+
+  const byCreatedAt = (a, b) => {
+    const at = a.createdAt ? a.createdAt.toMillis() : 0;
+    const bt = b.createdAt ? b.createdAt.toMillis() : 0;
+    return at - bt;
+  };
+
+  function getDescendantIds(categoryId) {
+    const direct = categories.filter(c => c.parentId === categoryId).map(c => c.id);
+    let all = [...direct];
+    direct.forEach(childId => { all = all.concat(getDescendantIds(childId)); });
+    return all;
+  }
+
+  function normalizedPriority(task) {
+    const p = task.priority;
+    if (!p || p === 'none') return 'blank';
+    return p;
+  }
+
+  function parseISODate(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function isOverdue(task) {
+    if (!task.dueDate || task.done) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return parseISODate(task.dueDate) < today;
+  }
+
+  // ---------------- Firestore listeners ----------------
+  function attachListeners() {
+    unsubCategories = onSnapshot(collection(db, 'categories'), (snap) => {
+      categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (!currentView) {
+        const roots = categories.filter(c => !c.parentId).sort(byCreatedAt);
+        if (roots.length > 0) currentView = { type: 'category', value: roots[0].id };
+      }
+      errorBanner.style.display = 'none';
+      render();
+    }, (err) => showError(`Couldn't load categories: ${err.message}`));
+
+    unsubTodos = onSnapshot(collection(db, 'todos'), (snap) => {
+      todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+    }, (err) => showError(`Couldn't load tasks: ${err.message}`));
+  }
+
+  // ---------------- Category actions ----------------
+  async function addCategory(parentId) {
+    const name = prompt(parentId ? 'Subcategory name:' : 'Category name:');
+    if (!name || !name.trim()) return;
+    try {
+      const newDoc = await addDoc(collection(db, 'categories'), {
+        name: name.trim(), parentId: parentId || null, createdAt: serverTimestamp()
+      });
+      currentView = { type: 'category', value: newDoc.id };
+    } catch (err) {
+      showError(`Couldn't create category: ${err.message}`);
+    }
+  }
+
+  async function renameCategory(categoryId, currentName) {
+    const name = prompt('Rename category:', currentName);
+    if (!name || !name.trim()) return;
+    try {
+      await updateDoc(doc(db, 'categories', categoryId), { name: name.trim() });
+    } catch (err) {
+      showError(`Couldn't rename category: ${err.message}`);
+    }
+  }
+
+  async function deleteCategoryCascade(categoryId) {
+    const childIds = categories.filter(c => c.parentId === categoryId).map(c => c.id);
+    for (const childId of childIds) {
+      await deleteCategoryCascade(childId);
+    }
+    const tasksToDelete = todos.filter(t => t.categoryId === categoryId);
+    for (const t of tasksToDelete) {
+      await deleteDoc(doc(db, 'todos', t.id));
+    }
+    await deleteDoc(doc(db, 'categories', categoryId));
+  }
+
+  async function handleDeleteCategory(categoryId, name) {
+    const ok = confirm(`Delete "${name}" and everything inside it (subcategories + tasks)? This can't be undone.`);
+    if (!ok) return;
+    try {
+      await deleteCategoryCascade(categoryId);
+      if (currentView && currentView.type === 'category' && currentView.value === categoryId) {
+        currentView = null;
+      }
+    } catch (err) {
+      showError(`Couldn't delete category: ${err.message}`);
+    }
+  }
+
+  document.getElementById('add-category-btn').addEventListener('click', () => addCategory(null));
+  document.getElementById('add-subcategory-btn').addEventListener('click', () => {
+    if (currentView && currentView.type === 'category') addCategory(currentView.value);
+  });
+  document.getElementById('rename-category-btn').addEventListener('click', () => {
+    if (currentView && currentView.type === 'category') {
+      const cat = categories.find(c => c.id === currentView.value);
+      if (cat) renameCategory(cat.id, cat.name);
+    }
+  });
+  document.getElementById('delete-category-btn').addEventListener('click', () => {
+    if (currentView && currentView.type === 'category') {
+      const cat = categories.find(c => c.id === currentView.value);
+      if (cat) handleDeleteCategory(cat.id, cat.name);
+    }
+  });
+  allTasksBtn.addEventListener('click', () => { currentView = { type: 'all' }; render(); });
+
+  // ---------------- Task actions ----------------
+  async function addTask() {
+    if (!currentView || currentView.type !== 'category') return;
+    const value = newTaskInput.value.trim();
+    if (!value) return;
+    const dueDate = newTaskDue.value || null;
+    newTaskInput.value = '';
+    newTaskDue.value = '';
+    addTaskBtn.disabled = true;
+    try {
+      await addDoc(collection(db, 'todos'), {
+        text: value,
+        done: false,
+        categoryId: currentView.value,
+        createdAt: serverTimestamp(),
+        dueDate: dueDate,
+        priority: 'blank'
+      });
+    } catch (err) {
+      showError(`Couldn't add task: ${err.message}`);
+      newTaskInput.value = value;
+    } finally {
+      addTaskBtn.disabled = false;
+    }
+  }
+  addTaskBtn.addEventListener('click', addTask);
+  newTaskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addTask(); });
+
+  function toggleTask(id, done) {
+    updateDoc(doc(db, 'todos', id), { done }).catch((err) => showError(`Couldn't update task: ${err.message}`));
+  }
+  function removeTask(id) {
+    deleteDoc(doc(db, 'todos', id)).catch((err) => showError(`Couldn't delete task: ${err.message}`));
+  }
+  function cyclePriority(task) {
+    const current = normalizedPriority(task);
+    const idx = PRIORITY_LEVELS.indexOf(current);
+    const next = PRIORITY_LEVELS[(idx + 1) % PRIORITY_LEVELS.length];
+    updateDoc(doc(db, 'todos', task.id), { priority: next })
+      .catch((err) => showError(`Couldn't update priority: ${err.message}`));
+  }
+  function updateDueDate(taskId, value) {
+    updateDoc(doc(db, 'todos', taskId), { dueDate: value || null })
+      .catch((err) => showError(`Couldn't update due date: ${err.message}`));
+  }
+
+  // ---------------- Selection ----------------
+  function selectCategory(id) { currentView = { type: 'category', value: id }; render(); }
+
+  // ---------------- Rendering ----------------
+  function render() {
+    renderCategoryTree();
+    renderMain();
+    allTasksBtn.classList.toggle('active', !!(currentView && currentView.type === 'all'));
+  }
+
+  function renderCategoryTree() {
+    const treeEl = document.getElementById('category-tree');
+    treeEl.innerHTML = '';
+    const roots = categories.filter(c => !c.parentId).sort(byCreatedAt);
+    if (roots.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'sidebar-empty';
+      li.textContent = 'No categories yet';
+      treeEl.appendChild(li);
+      return;
+    }
+    roots.forEach(cat => treeEl.appendChild(renderCategoryNode(cat)));
+  }
+
+  function renderCategoryNode(cat) {
+    const li = document.createElement('li');
+    li.className = 'cat-node';
+
+    const row = document.createElement('div');
+    row.className = 'cat-row' + (currentView && currentView.type === 'category' && currentView.value === cat.id ? ' active' : '');
+
+    const children = categories.filter(c => c.parentId === cat.id).sort(byCreatedAt);
+
+    if (children.length > 0) {
+      const caret = document.createElement('span');
+      caret.className = 'caret' + (collapsed.has(cat.id) ? ' collapsed' : '');
+      caret.textContent = '▾';
+      caret.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (collapsed.has(cat.id)) collapsed.delete(cat.id); else collapsed.add(cat.id);
+        render();
+      });
+      row.appendChild(caret);
+    } else {
+      const spacer = document.createElement('span');
+      spacer.className = 'caret-spacer';
+      row.appendChild(spacer);
+    }
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'cat-name';
+    nameSpan.textContent = cat.name;
+    row.appendChild(nameSpan);
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'row-add-btn';
+    addBtn.textContent = '+';
+    addBtn.title = 'Add subcategory';
+    addBtn.addEventListener('click', (e) => { e.stopPropagation(); addCategory(cat.id); });
+    row.appendChild(addBtn);
+
+    row.addEventListener('click', () => selectCategory(cat.id));
+    li.appendChild(row);
+
+    if (children.length > 0 && !collapsed.has(cat.id)) {
+      const childUl = document.createElement('ul');
+      childUl.className = 'cat-children';
+      children.forEach(child => childUl.appendChild(renderCategoryNode(child)));
+      li.appendChild(childUl);
+    }
+
+    return li;
+  }
+
+  function renderOptionRow(cat, descendantIds) {
+    const row = document.getElementById('option-row');
+    row.innerHTML = '';
+    if (descendantIds.length === 0) {
+      row.style.display = 'none';
+      return;
+    }
+    row.style.display = 'flex';
+
+    const label = document.createElement('label');
+    label.className = 'toggle';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !!includeSubcategories.get(cat.id);
+    checkbox.addEventListener('change', () => {
+      includeSubcategories.set(cat.id, checkbox.checked);
+      renderMain();
+    });
+    const track = document.createElement('span');
+    track.className = 'track';
+    const thumb = document.createElement('span');
+    thumb.className = 'thumb';
+    label.appendChild(checkbox);
+    label.appendChild(track);
+    label.appendChild(thumb);
+
+    const text = document.createElement('span');
+    text.className = 'option-label';
+    text.textContent = 'Include subcategories';
+
+    row.appendChild(label);
+    row.appendChild(text);
+  }
+
+  function renderMain() {
+    if (!currentView) {
+      categoryHeader.style.display = 'none';
+      allHeader.style.display = 'none';
+      addRow.style.display = 'none';
+      statusLine.style.display = 'none';
+      taskList.innerHTML = '';
+      emptyState.style.display = 'none';
+      mainPlaceholder.style.display = 'block';
+      return;
+    }
+    mainPlaceholder.style.display = 'none';
+    statusLine.style.display = 'inline-block';
+
+    let tasksToShow = [];
+    let showCategoryLabel = false;
+
+    if (currentView.type === 'category') {
+      const cat = categories.find(c => c.id === currentView.value);
+      if (!cat) { currentView = null; renderMain(); return; }
+      categoryHeader.style.display = 'block';
+      allHeader.style.display = 'none';
+      addRow.style.display = 'flex';
+      document.getElementById('view-title').textContent = cat.name;
+
+      const descendantIds = getDescendantIds(cat.id);
+      renderOptionRow(cat, descendantIds);
+      const includeChildren = descendantIds.length > 0 && !!includeSubcategories.get(cat.id);
+      const relevantIds = includeChildren ? [cat.id, ...descendantIds] : [cat.id];
+      tasksToShow = todos.filter(t => relevantIds.includes(t.categoryId));
+      showCategoryLabel = includeChildren;
+    } else if (currentView.type === 'all') {
+      categoryHeader.style.display = 'none';
+      allHeader.style.display = 'block';
+      addRow.style.display = 'none';
+      tasksToShow = todos;
+      showCategoryLabel = true;
+    }
+
+    renderTaskList(tasksToShow, showCategoryLabel);
+  }
+
+  function renderTaskList(tasks, showCategoryLabel) {
+    taskList.innerHTML = '';
+    const sorted = [...tasks].sort(byCreatedAt);
+
+    emptyState.style.display = sorted.length === 0 ? 'block' : 'none';
+    emptyState.textContent = currentView.type === 'all'
+      ? 'No tasks anywhere yet. Create a category and add one.'
+      : 'No tasks queued. Add one above to get started.';
+
+    let doneCount = 0;
+
+    sorted.forEach((task) => {
+      if (task.done) doneCount++;
+
+      const li = document.createElement('li');
+      li.className = 'task' + (task.done ? ' done' : '');
+
+      const label = document.createElement('label');
+      label.className = 'toggle';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !!task.done;
+      checkbox.addEventListener('change', () => toggleTask(task.id, checkbox.checked));
+      const track = document.createElement('span');
+      track.className = 'track';
+      const thumb = document.createElement('span');
+      thumb.className = 'thumb';
+      label.appendChild(checkbox);
+      label.appendChild(track);
+      label.appendChild(thumb);
+
+      const body = document.createElement('div');
+      body.className = 'task-body';
+
+      const topRow = document.createElement('div');
+      topRow.className = 'task-top-row';
+
+      const priority = normalizedPriority(task);
+      let priorityEl;
+      if (priority === 'blank') {
+        priorityEl = document.createElement('span');
+        priorityEl.className = 'priority-dot';
+        priorityEl.title = 'Priority: blank (click to set)';
+      } else {
+        priorityEl = document.createElement('span');
+        priorityEl.className = 'priority-badge priority-' + priority;
+        priorityEl.textContent = priority;
+        priorityEl.title = 'Priority: ' + priority + ' (click to change)';
+      }
+      priorityEl.addEventListener('click', () => cyclePriority(task));
+      topRow.appendChild(priorityEl);
+
+      const text = document.createElement('span');
+      text.className = 'task-text';
+      text.textContent = task.text;
+      topRow.appendChild(text);
+
+      body.appendChild(topRow);
+
+      const metaRow = document.createElement('div');
+      metaRow.className = 'task-meta-row';
+
+      if (showCategoryLabel) {
+        const cat = categories.find(c => c.id === task.categoryId);
+        const catMeta = document.createElement('span');
+        catMeta.className = 'task-meta';
+        catMeta.textContent = cat ? cat.name.toUpperCase() : '';
+        metaRow.appendChild(catMeta);
+      }
+
+      const dueWrap = document.createElement('span');
+      dueWrap.className = 'due-wrap';
+      const dueLabel = document.createElement('span');
+      dueLabel.className = 'task-meta';
+      dueLabel.textContent = 'DUE';
+      const dueInput = document.createElement('input');
+      dueInput.type = 'date';
+      dueInput.className = 'due-input' + (isOverdue(task) ? ' overdue' : '');
+      dueInput.value = task.dueDate || '';
+      dueInput.addEventListener('change', () => updateDueDate(task.id, dueInput.value));
+      dueWrap.appendChild(dueLabel);
+      dueWrap.appendChild(dueInput);
+      metaRow.appendChild(dueWrap);
+
+      body.appendChild(metaRow);
+
+      const del = document.createElement('button');
+      del.className = 'delete-btn';
+      del.setAttribute('aria-label', 'Delete task');
+      del.textContent = '✕';
+      del.addEventListener('click', () => removeTask(task.id));
+
+      li.appendChild(label);
+      li.appendChild(body);
+      li.appendChild(del);
+      taskList.appendChild(li);
+    });
+
+    const total = sorted.length;
+    const active = total - doneCount;
+    statusLine.textContent = total === 0 ? 'SYSTEM READY' : `${active} ACTIVE // ${doneCount} DONE`;
+  }
+</script>
+</body>
+</html>
