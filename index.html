@@ -351,12 +351,36 @@
   }
   .option-label { font-size: 13px; color: var(--ink-soft); }
 
+  .list-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
   .status-line {
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
     color: var(--ink-faint);
     display: inline-block;
-    margin-bottom: 18px;
+  }
+
+  .sort-select {
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .sort-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   .error-banner {
@@ -655,7 +679,14 @@
       <h2 id="all-view-title">All tasks</h2>
     </div>
 
-    <span class="status-line" id="status-line" style="display:none;">SYSTEM READY</span>
+    <div class="list-controls" id="list-controls" style="display:none;">
+      <span class="status-line" id="status-line"></span>
+      <select class="sort-select" id="sort-select">
+        <option value="created">Sort: Date created</option>
+        <option value="due">Sort: Due date</option>
+        <option value="priority">Sort: Priority</option>
+      </select>
+    </div>
     <p class="error-banner" id="error-banner"></p>
 
     <div class="add-row" id="add-row" style="display:none;">
@@ -819,10 +850,40 @@
   const collapsed = new Set();
   const includeSubcategories = new Map();
   const PRIORITY_LEVELS = ['blank', 'low', 'medium', 'high', 'urgent'];
+  let sortMode = 'created';
+
+  const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, blank: 4 };
+
+  function comparePriority(a, b) {
+    const pa = PRIORITY_ORDER[normalizedPriority(a)];
+    const pb = PRIORITY_ORDER[normalizedPriority(b)];
+    if (pa !== pb) return pa - pb;
+    return byCreatedAt(a, b);
+  }
+
+  function compareDueDate(a, b) {
+    const da = a.dueDate ? parseISODate(a.dueDate).getTime() : Infinity;
+    const db_ = b.dueDate ? parseISODate(b.dueDate).getTime() : Infinity;
+    if (da !== db_) return da - db_;
+    return byCreatedAt(a, b);
+  }
+
+  function getSortComparator() {
+    if (sortMode === 'priority') return comparePriority;
+    if (sortMode === 'due') return compareDueDate;
+    return byCreatedAt;
+  }
+
+  sortSelect.addEventListener('change', () => {
+    sortMode = sortSelect.value;
+    renderMain();
+  });
 
   // ---------------- DOM refs ----------------
   const errorBanner = document.getElementById('error-banner');
+  const listControls = document.getElementById('list-controls');
   const statusLine = document.getElementById('status-line');
+  const sortSelect = document.getElementById('sort-select');
   const taskList = document.getElementById('task-list');
   const emptyState = document.getElementById('empty-state');
   const mainPlaceholder = document.getElementById('main-placeholder');
@@ -1119,6 +1180,7 @@
       allHeader.style.display = 'none';
       addRow.style.display = 'none';
       statusLine.style.display = 'none';
+      listControls.style.display = 'none';
       taskList.innerHTML = '';
       emptyState.style.display = 'none';
       mainPlaceholder.style.display = 'block';
@@ -1126,6 +1188,7 @@
     }
     mainPlaceholder.style.display = 'none';
     statusLine.style.display = 'inline-block';
+    listControls.style.display = 'flex';
 
     let tasksToShow = [];
     let showCategoryLabel = false;
@@ -1157,7 +1220,7 @@
 
   function renderTaskList(tasks, showCategoryLabel) {
     taskList.innerHTML = '';
-    const sorted = [...tasks].sort(byCreatedAt);
+    const sorted = [...tasks].sort(getSortComparator());
 
     emptyState.style.display = sorted.length === 0 ? 'block' : 'none';
     emptyState.textContent = currentView.type === 'all'
