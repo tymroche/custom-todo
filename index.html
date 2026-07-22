@@ -37,26 +37,26 @@
   }
 
   :root.dark {
-    --bg: #0D1210;
-    --surface: #151C19;
-    --sidebar: #111714;
-    --ink: #E6EDE9;
-    --ink-soft: #9BAAA3;
-    --ink-faint: #5F6E67;
-    --accent: #46B27D;
-    --accent-dark: #6FCB9C;
-    --accent-soft: #1C3328;
-    --border: #253029;
-    --danger: #E58A7D;
-    --danger-soft: #3A211D;
-    --toggle-off: #2B3733;
-    --input-bg: #0F1512;
-    --shadow: rgba(0, 0, 0, 0.35);
+    --bg: #1B211E;
+    --surface: #212824;
+    --sidebar: #1E2521;
+    --ink: #D9E0DB;
+    --ink-soft: #A3AFA8;
+    --ink-faint: #6E7A73;
+    --accent: #5C9A7C;
+    --accent-dark: #7FB89A;
+    --accent-soft: #26332C;
+    --border: #2C3530;
+    --danger: #C98479;
+    --danger-soft: #33231F;
+    --toggle-off: #38423C;
+    --input-bg: #1D2420;
+    --shadow: rgba(0, 0, 0, 0.25);
 
-    --p-low-fg: #9CC3EE;    --p-low-bg: #1E2A38;
-    --p-medium-fg: #F0C27E; --p-medium-bg: #362A16;
-    --p-high-fg: #F0A57C;   --p-high-bg: #3A2416;
-    --p-urgent-fg: #F5A99C; --p-urgent-bg: #3A1E1C;
+    --p-low-fg: #B7CBDE;    --p-low-bg: #26313B;
+    --p-medium-fg: #E3C793; --p-medium-bg: #362E1F;
+    --p-high-fg: #E0B093;   --p-high-bg: #35271C;
+    --p-urgent-fg: #DDA79E; --p-urgent-bg: #33221E;
   }
 
   * { box-sizing: border-box; }
@@ -353,14 +353,10 @@
 
   .status-line {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12.5px;
-    color: var(--accent-dark);
-    background: var(--accent-soft);
+    font-size: 12px;
+    color: var(--ink-faint);
     display: inline-block;
-    padding: 5px 10px;
-    border-radius: 6px;
     margin-bottom: 18px;
-    letter-spacing: 0.01em;
   }
 
   .error-banner {
@@ -456,6 +452,43 @@
   .toggle input:checked + .track { background: var(--accent); }
   .toggle input:checked + .track + .thumb { transform: translateX(14px); }
   .toggle input:focus-visible + .track { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .checkbox {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    cursor: pointer;
+    margin-top: 2px;
+  }
+  .checkbox input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .checkbox .box {
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid var(--ink-faint);
+    border-radius: 5px;
+    background: transparent;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .checkbox .box::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+  .checkbox input:checked + .box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .checkbox input:checked + .box::after { opacity: 1; }
+  .checkbox input:focus-visible + .box { box-shadow: 0 0 0 3px var(--accent-soft); }
 
   .task-body { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 
@@ -620,7 +653,6 @@
 
     <div id="all-header" style="display:none;">
       <h2 id="all-view-title">All tasks</h2>
-      <p class="tag-subtitle">Every category, combined</p>
     </div>
 
     <span class="status-line" id="status-line" style="display:none;">SYSTEM READY</span>
@@ -1141,18 +1173,15 @@
       li.className = 'task' + (task.done ? ' done' : '');
 
       const label = document.createElement('label');
-      label.className = 'toggle';
+      label.className = 'checkbox';
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = !!task.done;
       checkbox.addEventListener('change', () => toggleTask(task.id, checkbox.checked));
-      const track = document.createElement('span');
-      track.className = 'track';
-      const thumb = document.createElement('span');
-      thumb.className = 'thumb';
+      const box = document.createElement('span');
+      box.className = 'box';
       label.appendChild(checkbox);
-      label.appendChild(track);
-      label.appendChild(thumb);
+      label.appendChild(box);
 
       const body = document.createElement('div');
       body.className = 'task-body';
@@ -1223,7 +1252,7 @@
 
     const total = sorted.length;
     const active = total - doneCount;
-    statusLine.textContent = total === 0 ? 'SYSTEM READY' : `${active} ACTIVE // ${doneCount} DONE`;
+    statusLine.textContent = `${active} active, ${doneCount} completed`;
   }
 </script>
 </body>
