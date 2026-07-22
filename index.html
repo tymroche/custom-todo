@@ -403,46 +403,6 @@
   .color-swatch:hover { transform: scale(1.15); }
   .color-swatch.selected { border-color: var(--ink); }
 
-  .tags-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 14px 0 4px;
-  }
-  .tag-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    background: var(--accent-soft);
-    color: var(--accent-dark);
-    padding: 4px 4px 4px 9px;
-    border-radius: 999px;
-  }
-  .tag-chip-remove {
-    background: none;
-    border: none;
-    color: var(--accent-dark);
-    opacity: 0.6;
-    cursor: pointer;
-    font-size: 11px;
-    padding: 2px 5px;
-  }
-  .tag-chip-remove:hover { opacity: 1; }
-  .tag-add-btn {
-    font-family: 'Inter', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    background: none;
-    border: 1px dashed var(--border);
-    color: var(--ink-soft);
-    padding: 4px 10px;
-    border-radius: 999px;
-    cursor: pointer;
-  }
-  .tag-add-btn:hover { border-color: var(--accent); color: var(--accent-dark); }
-
   .cat-dot {
     width: 8px;
     height: 8px;
@@ -679,6 +639,40 @@
 
   .due-wrap { display: inline-flex; align-items: center; gap: 4px; }
 
+  .task-tags-wrap { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .task-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    padding: 1px 3px 1px 7px;
+    border-radius: 999px;
+  }
+  .task-tag-remove {
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.6;
+    cursor: pointer;
+    font-size: 9px;
+    padding: 0 4px;
+  }
+  .task-tag-remove:hover { opacity: 1; }
+  .task-tag-add {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--ink-faint);
+    padding: 1px 7px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .task-tag-add:hover { border-color: var(--accent); color: var(--accent-dark); }
+
   .due-input {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10.5px;
@@ -860,7 +854,6 @@
         </div>
       </div>
       <div class="color-row" id="color-row"></div>
-      <div class="tags-row" id="tags-row"></div>
       <div class="option-row" id="option-row" style="display:none;"></div>
     </div>
 
@@ -1215,7 +1208,7 @@
     try {
       const newDoc = await addDoc(collection(db, 'categories'), {
         name: name.trim(), parentId: parentId || null, uid: auth.currentUser.uid,
-        color: 'green', tags: [], createdAt: serverTimestamp()
+        color: 'green', createdAt: serverTimestamp()
       });
       currentView = { type: 'category', value: newDoc.id };
     } catch (err) {
@@ -1228,19 +1221,19 @@
       .catch((err) => showError(`Couldn't set color: ${err.message}`));
   }
 
-  async function addTagToCategory(categoryId) {
-    const tag = await customPrompt('Tag name (e.g. "classes")');
+  async function addTagToTask(taskId) {
+    const tag = await customPrompt('Tag name (e.g. "urgent-fix")');
     if (!tag || !tag.trim()) return;
     try {
-      await updateDoc(doc(db, 'categories', categoryId), { tags: arrayUnion(tag.trim()) });
+      await updateDoc(doc(db, 'todos', taskId), { tags: arrayUnion(tag.trim()) });
     } catch (err) {
       showError(`Couldn't add tag: ${err.message}`);
     }
   }
 
-  async function removeTagFromCategory(categoryId, tag) {
+  async function removeTagFromTask(taskId, tag) {
     try {
-      await updateDoc(doc(db, 'categories', categoryId), { tags: arrayRemove(tag) });
+      await updateDoc(doc(db, 'todos', taskId), { tags: arrayRemove(tag) });
     } catch (err) {
       showError(`Couldn't remove tag: ${err.message}`);
     }
@@ -1319,7 +1312,8 @@
         uid: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         dueDate: dueDate,
-        priority: 'blank'
+        priority: 'blank',
+        tags: []
       });
     } catch (err) {
       showError(`Couldn't add task: ${err.message}`);
@@ -1365,7 +1359,7 @@
     const el = document.getElementById('tag-list');
     el.innerHTML = '';
     const allTags = new Set();
-    categories.forEach(c => (c.tags || []).forEach(t => allTags.add(t)));
+    todos.forEach(t => (t.tags || []).forEach(tag => allTags.add(tag)));
     if (allTags.size === 0) {
       const li = document.createElement('li');
       li.className = 'sidebar-empty';
@@ -1470,27 +1464,6 @@
     });
   }
 
-  function renderTagsRow(cat) {
-    const row = document.getElementById('tags-row');
-    row.innerHTML = '';
-    (cat.tags || []).forEach((tag) => {
-      const chip = document.createElement('span');
-      chip.className = 'tag-chip';
-      chip.textContent = '#' + tag;
-      const remove = document.createElement('button');
-      remove.className = 'tag-chip-remove';
-      remove.textContent = '✕';
-      remove.addEventListener('click', () => removeTagFromCategory(cat.id, tag));
-      chip.appendChild(remove);
-      row.appendChild(chip);
-    });
-    const addBtn = document.createElement('button');
-    addBtn.className = 'tag-add-btn';
-    addBtn.textContent = '+ tag';
-    addBtn.addEventListener('click', () => addTagToCategory(cat.id));
-    row.appendChild(addBtn);
-  }
-
   function renderOptionRow(cat, descendantIds) {
     const row = document.getElementById('option-row');
     row.innerHTML = '';
@@ -1554,7 +1527,6 @@
       addRow.style.display = 'flex';
       document.getElementById('view-title').textContent = cat.name;
       renderColorRow(cat);
-      renderTagsRow(cat);
 
       const descendantIds = getDescendantIds(cat.id);
       renderOptionRow(cat, descendantIds);
@@ -1568,8 +1540,7 @@
       allHeader.style.display = 'none';
       addRow.style.display = 'none';
       document.getElementById('tag-view-title').textContent = '#' + currentView.value;
-      const matchingIds = categories.filter(c => (c.tags || []).includes(currentView.value)).map(c => c.id);
-      tasksToShow = todos.filter(t => matchingIds.includes(t.categoryId));
+      tasksToShow = todos.filter(t => (t.tags || []).includes(currentView.value));
       showCategoryLabel = true;
     } else if (currentView.type === 'all') {
       categoryHeader.style.display = 'none';
@@ -1665,6 +1636,26 @@
       dueWrap.appendChild(dueLabel);
       dueWrap.appendChild(dueInput);
       metaRow.appendChild(dueWrap);
+
+      const tagsWrap = document.createElement('span');
+      tagsWrap.className = 'task-tags-wrap';
+      (task.tags || []).forEach((tag) => {
+        const chip = document.createElement('span');
+        chip.className = 'task-tag-chip';
+        chip.textContent = '#' + tag;
+        const remove = document.createElement('button');
+        remove.className = 'task-tag-remove';
+        remove.textContent = '✕';
+        remove.addEventListener('click', () => removeTagFromTask(task.id, tag));
+        chip.appendChild(remove);
+        tagsWrap.appendChild(chip);
+      });
+      const addTagBtn = document.createElement('button');
+      addTagBtn.className = 'task-tag-add';
+      addTagBtn.textContent = '+ tag';
+      addTagBtn.addEventListener('click', () => addTagToTask(task.id));
+      tagsWrap.appendChild(addTagBtn);
+      metaRow.appendChild(tagsWrap);
 
       body.appendChild(metaRow);
 
