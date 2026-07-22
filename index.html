@@ -683,7 +683,7 @@
       <span class="status-line" id="status-line"></span>
       <select class="sort-select" id="sort-select">
         <option value="created">Sort: Date created</option>
-        <option value="due">Sort: Due date</option>
+        <option value="due" selected>Sort: Due date</option>
         <option value="priority">Sort: Priority</option>
       </select>
     </div>
@@ -850,7 +850,7 @@
   const collapsed = new Set();
   const includeSubcategories = new Map();
   const PRIORITY_LEVELS = ['blank', 'low', 'medium', 'high', 'urgent'];
-  let sortMode = 'created';
+  let sortMode = 'due';
 
   const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, blank: 4 };
 
