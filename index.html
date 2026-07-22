@@ -1036,6 +1036,10 @@
   let currentView = null;
   const collapsed = new Set();
   const includeSubcategories = new Map();
+
+  function shouldIncludeSubcategories(catId) {
+    return includeSubcategories.has(catId) ? includeSubcategories.get(catId) : true;
+  }
   const PRIORITY_LEVELS = ['blank', 'low', 'medium', 'high', 'urgent'];
   let sortMode = 'due';
 
@@ -1477,7 +1481,7 @@
     label.className = 'toggle';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.checked = !!includeSubcategories.get(cat.id);
+    checkbox.checked = shouldIncludeSubcategories(cat.id);
     checkbox.addEventListener('change', () => {
       includeSubcategories.set(cat.id, checkbox.checked);
       renderMain();
@@ -1530,7 +1534,7 @@
 
       const descendantIds = getDescendantIds(cat.id);
       renderOptionRow(cat, descendantIds);
-      const includeChildren = descendantIds.length > 0 && !!includeSubcategories.get(cat.id);
+      const includeChildren = descendantIds.length > 0 && shouldIncludeSubcategories(cat.id);
       const relevantIds = includeChildren ? [cat.id, ...descendantIds] : [cat.id];
       tasksToShow = todos.filter(t => relevantIds.includes(t.categoryId));
       showCategoryLabel = includeChildren;
