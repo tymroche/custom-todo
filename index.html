@@ -937,11 +937,6 @@
     return byCreatedAt;
   }
 
-  sortSelect.addEventListener('change', () => {
-    sortMode = sortSelect.value;
-    renderMain();
-  });
-
   // ---------------- DOM refs ----------------
   const errorBanner = document.getElementById('error-banner');
   const listControls = document.getElementById('list-controls');
@@ -957,6 +952,11 @@
   const newTaskDue = document.getElementById('new-task-due');
   const addTaskBtn = document.getElementById('add-task-btn');
   const allTasksBtn = document.getElementById('all-tasks-btn');
+
+  sortSelect.addEventListener('change', () => {
+    sortMode = sortSelect.value;
+    renderMain();
+  });
 
   function showError(message) {
     console.error(message);
