@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-v5';
+const CACHE_NAME = 'todo-v6';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -15,10 +15,13 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first: always try to fetch the latest version when online, and only
-// fall back to the cached copy if the network request fails (i.e. offline).
+// Only ever manage our own same-origin static files. Firestore's realtime
+// sync connection (and any other cross-origin call) must pass through
+// completely untouched, or the service worker breaks its streaming channel.
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {

@@ -1019,11 +1019,11 @@
     });
   }
 
-  const byCreatedAt = (a, b) => {
+  function byCreatedAt(a, b) {
     const at = a.createdAt ? a.createdAt.toMillis() : 0;
     const bt = b.createdAt ? b.createdAt.toMillis() : 0;
     return at - bt;
-  };
+  }
 
   function getDescendantIds(categoryId) {
     const direct = categories.filter(c => c.parentId === categoryId).map(c => c.id);
