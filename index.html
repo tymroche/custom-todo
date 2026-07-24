@@ -523,6 +523,25 @@
   }
   li.task:last-child { border-bottom: none; }
 
+  .completed-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .completed-divider::before,
+  .completed-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
   .toggle {
     position: relative;
     width: 34px;
@@ -1558,6 +1577,108 @@
     renderTaskList(tasksToShow, showCategoryLabel);
   }
 
+  function buildTaskRow(task, showCategoryLabel) {
+    const li = document.createElement('li');
+    li.className = 'task' + (task.done ? ' done' : '');
+
+    const label = document.createElement('label');
+    label.className = 'checkbox';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !!task.done;
+    checkbox.addEventListener('change', () => toggleTask(task.id, checkbox.checked));
+    const box = document.createElement('span');
+    box.className = 'box';
+    label.appendChild(checkbox);
+    label.appendChild(box);
+
+    const body = document.createElement('div');
+    body.className = 'task-body';
+
+    const topRow = document.createElement('div');
+    topRow.className = 'task-top-row';
+
+    const priority = normalizedPriority(task);
+    let priorityEl;
+    if (priority === 'blank') {
+      priorityEl = document.createElement('span');
+      priorityEl.className = 'priority-dot';
+      priorityEl.title = 'Priority: blank (click to set)';
+    } else {
+      priorityEl = document.createElement('span');
+      priorityEl.className = 'priority-badge priority-' + priority;
+      priorityEl.textContent = priority;
+      priorityEl.title = 'Priority: ' + priority + ' (click to change)';
+    }
+    priorityEl.addEventListener('click', () => cyclePriority(task));
+    topRow.appendChild(priorityEl);
+
+    const text = document.createElement('span');
+    text.className = 'task-text';
+    text.textContent = task.text;
+    topRow.appendChild(text);
+
+    body.appendChild(topRow);
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'task-meta-row';
+
+    if (showCategoryLabel) {
+      const cat = categories.find(c => c.id === task.categoryId);
+      const catMeta = document.createElement('span');
+      catMeta.className = 'cat-badge cat-' + categoryColor(cat);
+      catMeta.textContent = cat ? cat.name.toUpperCase() : '';
+      metaRow.appendChild(catMeta);
+    }
+
+    const dueWrap = document.createElement('span');
+    dueWrap.className = 'due-wrap';
+    const dueLabel = document.createElement('span');
+    dueLabel.className = 'task-meta';
+    dueLabel.textContent = 'DUE';
+    const dueInput = document.createElement('input');
+    dueInput.type = 'date';
+    dueInput.className = 'due-input' + (isOverdue(task) ? ' overdue' : '');
+    dueInput.value = task.dueDate || '';
+    dueInput.addEventListener('change', () => updateDueDate(task.id, dueInput.value));
+    dueWrap.appendChild(dueLabel);
+    dueWrap.appendChild(dueInput);
+    metaRow.appendChild(dueWrap);
+
+    const tagsWrap = document.createElement('span');
+    tagsWrap.className = 'task-tags-wrap';
+    (task.tags || []).forEach((tag) => {
+      const chip = document.createElement('span');
+      chip.className = 'task-tag-chip';
+      chip.textContent = '#' + tag;
+      const remove = document.createElement('button');
+      remove.className = 'task-tag-remove';
+      remove.textContent = '✕';
+      remove.addEventListener('click', () => removeTagFromTask(task.id, tag));
+      chip.appendChild(remove);
+      tagsWrap.appendChild(chip);
+    });
+    const addTagBtn = document.createElement('button');
+    addTagBtn.className = 'task-tag-add';
+    addTagBtn.textContent = '+ tag';
+    addTagBtn.addEventListener('click', () => addTagToTask(task.id));
+    tagsWrap.appendChild(addTagBtn);
+    metaRow.appendChild(tagsWrap);
+
+    body.appendChild(metaRow);
+
+    const del = document.createElement('button');
+    del.className = 'delete-btn';
+    del.setAttribute('aria-label', 'Delete task');
+    del.textContent = '✕';
+    del.addEventListener('click', () => removeTask(task.id));
+
+    li.appendChild(label);
+    li.appendChild(body);
+    li.appendChild(del);
+    return li;
+  }
+
   function renderTaskList(tasks, showCategoryLabel) {
     taskList.innerHTML = '';
     const sorted = [...tasks].sort(getSortComparator());
@@ -1569,115 +1690,25 @@
       ? 'No tasks tagged here yet.'
       : 'No tasks queued. Add one above to get started.';
 
-    let doneCount = 0;
+    const activeTasks = sorted.filter(t => !t.done);
+    const completedTasks = sorted.filter(t => t.done);
 
-    sorted.forEach((task) => {
-      if (task.done) doneCount++;
-
-      const li = document.createElement('li');
-      li.className = 'task' + (task.done ? ' done' : '');
-
-      const label = document.createElement('label');
-      label.className = 'checkbox';
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = !!task.done;
-      checkbox.addEventListener('change', () => toggleTask(task.id, checkbox.checked));
-      const box = document.createElement('span');
-      box.className = 'box';
-      label.appendChild(checkbox);
-      label.appendChild(box);
-
-      const body = document.createElement('div');
-      body.className = 'task-body';
-
-      const topRow = document.createElement('div');
-      topRow.className = 'task-top-row';
-
-      const priority = normalizedPriority(task);
-      let priorityEl;
-      if (priority === 'blank') {
-        priorityEl = document.createElement('span');
-        priorityEl.className = 'priority-dot';
-        priorityEl.title = 'Priority: blank (click to set)';
-      } else {
-        priorityEl = document.createElement('span');
-        priorityEl.className = 'priority-badge priority-' + priority;
-        priorityEl.textContent = priority;
-        priorityEl.title = 'Priority: ' + priority + ' (click to change)';
-      }
-      priorityEl.addEventListener('click', () => cyclePriority(task));
-      topRow.appendChild(priorityEl);
-
-      const text = document.createElement('span');
-      text.className = 'task-text';
-      text.textContent = task.text;
-      topRow.appendChild(text);
-
-      body.appendChild(topRow);
-
-      const metaRow = document.createElement('div');
-      metaRow.className = 'task-meta-row';
-
-      if (showCategoryLabel) {
-        const cat = categories.find(c => c.id === task.categoryId);
-        const catMeta = document.createElement('span');
-        catMeta.className = 'cat-badge cat-' + categoryColor(cat);
-        catMeta.textContent = cat ? cat.name.toUpperCase() : '';
-        metaRow.appendChild(catMeta);
-      }
-
-      const dueWrap = document.createElement('span');
-      dueWrap.className = 'due-wrap';
-      const dueLabel = document.createElement('span');
-      dueLabel.className = 'task-meta';
-      dueLabel.textContent = 'DUE';
-      const dueInput = document.createElement('input');
-      dueInput.type = 'date';
-      dueInput.className = 'due-input' + (isOverdue(task) ? ' overdue' : '');
-      dueInput.value = task.dueDate || '';
-      dueInput.addEventListener('change', () => updateDueDate(task.id, dueInput.value));
-      dueWrap.appendChild(dueLabel);
-      dueWrap.appendChild(dueInput);
-      metaRow.appendChild(dueWrap);
-
-      const tagsWrap = document.createElement('span');
-      tagsWrap.className = 'task-tags-wrap';
-      (task.tags || []).forEach((tag) => {
-        const chip = document.createElement('span');
-        chip.className = 'task-tag-chip';
-        chip.textContent = '#' + tag;
-        const remove = document.createElement('button');
-        remove.className = 'task-tag-remove';
-        remove.textContent = '✕';
-        remove.addEventListener('click', () => removeTagFromTask(task.id, tag));
-        chip.appendChild(remove);
-        tagsWrap.appendChild(chip);
-      });
-      const addTagBtn = document.createElement('button');
-      addTagBtn.className = 'task-tag-add';
-      addTagBtn.textContent = '+ tag';
-      addTagBtn.addEventListener('click', () => addTagToTask(task.id));
-      tagsWrap.appendChild(addTagBtn);
-      metaRow.appendChild(tagsWrap);
-
-      body.appendChild(metaRow);
-
-      const del = document.createElement('button');
-      del.className = 'delete-btn';
-      del.setAttribute('aria-label', 'Delete task');
-      del.textContent = '✕';
-      del.addEventListener('click', () => removeTask(task.id));
-
-      li.appendChild(label);
-      li.appendChild(body);
-      li.appendChild(del);
-      taskList.appendChild(li);
+    activeTasks.forEach((task) => {
+      taskList.appendChild(buildTaskRow(task, showCategoryLabel));
     });
 
-    const total = sorted.length;
-    const active = total - doneCount;
-    statusLine.textContent = `${active} active, ${doneCount} completed`;
+    if (completedTasks.length > 0) {
+      const divider = document.createElement('li');
+      divider.className = 'completed-divider';
+      divider.textContent = `Completed (${completedTasks.length})`;
+      taskList.appendChild(divider);
+
+      completedTasks.forEach((task) => {
+        taskList.appendChild(buildTaskRow(task, showCategoryLabel));
+      });
+    }
+
+    statusLine.textContent = `${activeTasks.length} active, ${completedTasks.length} completed`;
   }
 </script>
 </body>
