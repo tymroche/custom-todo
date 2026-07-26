@@ -238,6 +238,13 @@
     margin-bottom: 8px;
   }
 
+  .sidebar-section-title-clickable {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
   .sidebar-section-title {
     font-family: 'Space Grotesk', sans-serif;
     font-size: 11px;
@@ -290,6 +297,24 @@
     cursor: pointer;
   }
   .cat-row:hover { background: var(--border); }
+
+  ul#archived-list {
+    list-style: none;
+    margin: 18px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .archived-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .archived-row:last-child { border-bottom: none; }
+  .archived-row .cat-name-text { flex: 1; font-size: 14px; color: var(--ink); }
   .cat-row.active { background: var(--accent-soft); }
   .cat-row.active .cat-name { color: var(--accent-dark); font-weight: 600; }
 
@@ -844,20 +869,24 @@
     </div>
 
     <div class="all-tasks-row" id="all-tasks-btn"><span class="square"></span> All tasks</div>
+    <div class="all-tasks-row" id="archived-btn"><span class="square"></span> Archived</div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title-row">
+        <div class="sidebar-section-title-clickable" id="categories-section-toggle">
+          <span class="caret" id="categories-caret">▾</span>
+          <span class="sidebar-section-title">Categories</span>
+        </div>
+        <button class="icon-btn" id="add-category-btn" title="New category">+</button>
+      </div>
+      <ul id="category-tree"></ul>
+    </div>
 
     <div class="sidebar-section">
       <div class="sidebar-section-title-row">
         <span class="sidebar-section-title">Tags</span>
       </div>
       <ul id="tag-list"></ul>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-section-title-row">
-        <span class="sidebar-section-title">Categories</span>
-        <button class="icon-btn" id="add-category-btn" title="New category">+</button>
-      </div>
-      <ul id="category-tree"></ul>
     </div>
   </div>
 
@@ -869,6 +898,7 @@
         <div class="header-actions">
           <button class="btn-ghost" id="add-subcategory-btn">+ Subcategory</button>
           <button class="btn-ghost" id="rename-category-btn">Rename</button>
+          <button class="btn-ghost" id="archive-category-btn">Archive</button>
           <button class="btn-ghost-danger" id="delete-category-btn">Delete</button>
         </div>
       </div>
@@ -882,6 +912,13 @@
 
     <div id="all-header" style="display:none;">
       <h2 id="all-view-title">All tasks</h2>
+    </div>
+
+    <div id="archived-header" style="display:none;">
+      <h2>Archived</h2>
+      <p class="tag-subtitle">Restore a category to bring it (and its tasks) back</p>
+      <ul id="archived-list"></ul>
+      <p class="empty-state" id="archived-empty" style="display:none;">Nothing archived yet.</p>
     </div>
 
     <div class="list-controls" id="list-controls" style="display:none;">
@@ -1021,7 +1058,7 @@
       if (unsubTodos) { unsubTodos(); unsubTodos = null; }
       categories = [];
       todos = [];
-      currentView = null;
+      currentView = { type: 'all' };
     }
   });
 
@@ -1052,9 +1089,10 @@
   // ---------------- In-memory state ----------------
   let categories = [];
   let todos = [];
-  let currentView = null;
+  let currentView = { type: 'all' };
   const collapsed = new Set();
   const includeSubcategories = new Map();
+  let categoriesSectionCollapsed = true;
 
   function shouldIncludeSubcategories(catId) {
     return includeSubcategories.has(catId) ? includeSubcategories.get(catId) : true;
@@ -1106,6 +1144,13 @@
   const newTaskDue = document.getElementById('new-task-due');
   const addTaskBtn = document.getElementById('add-task-btn');
   const allTasksBtn = document.getElementById('all-tasks-btn');
+  const archivedBtn = document.getElementById('archived-btn');
+  const archivedHeader = document.getElementById('archived-header');
+  const archivedListEl = document.getElementById('archived-list');
+  const archivedEmpty = document.getElementById('archived-empty');
+  const categoryTreeEl = document.getElementById('category-tree');
+  const categoriesSectionToggle = document.getElementById('categories-section-toggle');
+  const categoriesCaret = document.getElementById('categories-caret');
 
   sortSelect.addEventListener('change', () => {
     sortMode = sortSelect.value;
@@ -1204,15 +1249,20 @@
     return parseISODate(task.dueDate) < today;
   }
 
+  function formatCompletedDate(timestamp) {
+    if (!timestamp || !timestamp.toDate) return '';
+    const date = timestamp.toDate();
+    const now = new Date();
+    const opts = { month: 'short', day: 'numeric' };
+    if (date.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+    return date.toLocaleDateString(undefined, opts).toUpperCase();
+  }
+
   // ---------------- Firestore listeners ----------------
   function attachListeners(uid) {
     const categoriesQuery = query(collection(db, 'categories'), where('uid', '==', uid));
     unsubCategories = onSnapshot(categoriesQuery, (snap) => {
       categories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (!currentView) {
-        const roots = categories.filter(c => !c.parentId).sort(byCreatedAt);
-        if (roots.length > 0) currentView = { type: 'category', value: roots[0].id };
-      }
       errorBanner.style.display = 'none';
       render();
     }, (err) => showError(`Couldn't load categories: ${err.message}`));
@@ -1231,7 +1281,7 @@
     try {
       const newDoc = await addDoc(collection(db, 'categories'), {
         name: name.trim(), parentId: parentId || null, uid: auth.currentUser.uid,
-        color: 'green', createdAt: serverTimestamp()
+        color: 'green', archived: false, createdAt: serverTimestamp()
       });
       currentView = { type: 'category', value: newDoc.id };
     } catch (err) {
@@ -1293,10 +1343,46 @@
     try {
       await deleteCategoryCascade(categoryId);
       if (currentView && currentView.type === 'category' && currentView.value === categoryId) {
-        currentView = null;
+        currentView = { type: 'all' };
       }
     } catch (err) {
       showError(`Couldn't delete category: ${err.message}`);
+    }
+  }
+
+  async function setCategoryArchivedCascade(categoryId, archived) {
+    const childIds = categories.filter(c => c.parentId === categoryId).map(c => c.id);
+    for (const childId of childIds) {
+      await setCategoryArchivedCascade(childId, archived);
+    }
+    const tasksToUpdate = todos.filter(t => t.categoryId === categoryId);
+    for (const t of tasksToUpdate) {
+      await updateDoc(doc(db, 'todos', t.id), { archived });
+    }
+    await updateDoc(doc(db, 'categories', categoryId), { archived });
+  }
+
+  async function handleArchiveCategory(categoryId, name) {
+    const ok = await customConfirm(
+      `Archive "${name}" and everything inside it? Its tasks are archived too. You can restore it later from Archived.`,
+      { title: 'Archive category?', confirmLabel: 'Archive' }
+    );
+    if (!ok) return;
+    try {
+      await setCategoryArchivedCascade(categoryId, true);
+      if (currentView && currentView.type === 'category' && currentView.value === categoryId) {
+        currentView = { type: 'all' };
+      }
+    } catch (err) {
+      showError(`Couldn't archive category: ${err.message}`);
+    }
+  }
+
+  async function handleUnarchiveCategory(categoryId) {
+    try {
+      await setCategoryArchivedCascade(categoryId, false);
+    } catch (err) {
+      showError(`Couldn't restore category: ${err.message}`);
     }
   }
 
@@ -1310,6 +1396,12 @@
       if (cat) renameCategory(cat.id, cat.name);
     }
   });
+  document.getElementById('archive-category-btn').addEventListener('click', () => {
+    if (currentView && currentView.type === 'category') {
+      const cat = categories.find(c => c.id === currentView.value);
+      if (cat) handleArchiveCategory(cat.id, cat.name);
+    }
+  });
   document.getElementById('delete-category-btn').addEventListener('click', () => {
     if (currentView && currentView.type === 'category') {
       const cat = categories.find(c => c.id === currentView.value);
@@ -1317,6 +1409,18 @@
     }
   });
   allTasksBtn.addEventListener('click', () => { currentView = { type: 'all' }; render(); });
+  archivedBtn.addEventListener('click', () => { currentView = { type: 'archived' }; render(); });
+
+
+  function applyCategoriesSectionCollapse() {
+    categoryTreeEl.style.display = categoriesSectionCollapsed ? 'none' : 'block';
+    categoriesCaret.classList.toggle('collapsed', categoriesSectionCollapsed);
+  }
+  categoriesSectionToggle.addEventListener('click', () => {
+    categoriesSectionCollapsed = !categoriesSectionCollapsed;
+    applyCategoriesSectionCollapse();
+  });
+  applyCategoriesSectionCollapse();
 
   // ---------------- Task actions ----------------
   async function addTask() {
@@ -1336,7 +1440,9 @@
         createdAt: serverTimestamp(),
         dueDate: dueDate,
         priority: 'blank',
-        tags: []
+        tags: [],
+        archived: false,
+        completedAt: null
       });
     } catch (err) {
       showError(`Couldn't add task: ${err.message}`);
@@ -1349,7 +1455,8 @@
   newTaskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addTask(); });
 
   function toggleTask(id, done) {
-    updateDoc(doc(db, 'todos', id), { done }).catch((err) => showError(`Couldn't update task: ${err.message}`));
+    updateDoc(doc(db, 'todos', id), { done, completedAt: done ? serverTimestamp() : null })
+      .catch((err) => showError(`Couldn't update task: ${err.message}`));
   }
   function removeTask(id) {
     deleteDoc(doc(db, 'todos', id)).catch((err) => showError(`Couldn't delete task: ${err.message}`));
@@ -1376,13 +1483,14 @@
     renderCategoryTree();
     renderMain();
     allTasksBtn.classList.toggle('active', !!(currentView && currentView.type === 'all'));
+    archivedBtn.classList.toggle('active', !!(currentView && currentView.type === 'archived'));
   }
 
   function renderTagList() {
     const el = document.getElementById('tag-list');
     el.innerHTML = '';
     const allTags = new Set();
-    todos.forEach(t => (t.tags || []).forEach(tag => allTags.add(tag)));
+    todos.filter(t => !t.archived).forEach(t => (t.tags || []).forEach(tag => allTags.add(tag)));
     if (allTags.size === 0) {
       const li = document.createElement('li');
       li.className = 'sidebar-empty';
@@ -1402,7 +1510,7 @@
   function renderCategoryTree() {
     const treeEl = document.getElementById('category-tree');
     treeEl.innerHTML = '';
-    const roots = categories.filter(c => !c.parentId).sort(byCreatedAt);
+    const roots = categories.filter(c => !c.parentId && !c.archived).sort(byCreatedAt);
     if (roots.length === 0) {
       const li = document.createElement('li');
       li.className = 'sidebar-empty';
@@ -1420,7 +1528,7 @@
     const row = document.createElement('div');
     row.className = 'cat-row' + (currentView && currentView.type === 'category' && currentView.value === cat.id ? ' active' : '');
 
-    const children = categories.filter(c => c.parentId === cat.id).sort(byCreatedAt);
+    const children = categories.filter(c => c.parentId === cat.id && !c.archived).sort(byCreatedAt);
 
     if (children.length > 0) {
       const caret = document.createElement('span');
@@ -1521,11 +1629,41 @@
     row.appendChild(text);
   }
 
+  function renderArchivedList() {
+    archivedListEl.innerHTML = '';
+    const archivedCats = categories.filter(c => c.archived).sort(byCreatedAt);
+    archivedEmpty.style.display = archivedCats.length === 0 ? 'block' : 'none';
+
+    archivedCats.forEach((cat) => {
+      const li = document.createElement('li');
+      li.className = 'archived-row';
+
+      const dot = document.createElement('span');
+      dot.className = 'cat-dot';
+      dot.style.background = `var(--cat-${categoryColor(cat)}-fg)`;
+
+      const name = document.createElement('span');
+      name.className = 'cat-name-text';
+      name.textContent = cat.name;
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'btn-ghost';
+      restoreBtn.textContent = 'Unarchive';
+      restoreBtn.addEventListener('click', () => handleUnarchiveCategory(cat.id));
+
+      li.appendChild(dot);
+      li.appendChild(name);
+      li.appendChild(restoreBtn);
+      archivedListEl.appendChild(li);
+    });
+  }
+
   function renderMain() {
     if (!currentView) {
       categoryHeader.style.display = 'none';
       tagHeader.style.display = 'none';
       allHeader.style.display = 'none';
+      archivedHeader.style.display = 'none';
       addRow.style.display = 'none';
       statusLine.style.display = 'none';
       listControls.style.display = 'none';
@@ -1535,6 +1673,21 @@
       return;
     }
     mainPlaceholder.style.display = 'none';
+
+    if (currentView.type === 'archived') {
+      categoryHeader.style.display = 'none';
+      tagHeader.style.display = 'none';
+      allHeader.style.display = 'none';
+      addRow.style.display = 'none';
+      statusLine.style.display = 'none';
+      listControls.style.display = 'none';
+      taskList.innerHTML = '';
+      emptyState.style.display = 'none';
+      archivedHeader.style.display = 'block';
+      renderArchivedList();
+      return;
+    }
+    archivedHeader.style.display = 'none';
     statusLine.style.display = 'inline-block';
     listControls.style.display = 'flex';
 
@@ -1543,7 +1696,7 @@
 
     if (currentView.type === 'category') {
       const cat = categories.find(c => c.id === currentView.value);
-      if (!cat) { currentView = null; renderMain(); return; }
+      if (!cat) { currentView = { type: 'all' }; renderMain(); return; }
       categoryHeader.style.display = 'block';
       tagHeader.style.display = 'none';
       allHeader.style.display = 'none';
@@ -1555,7 +1708,7 @@
       renderOptionRow(cat, descendantIds);
       const includeChildren = descendantIds.length > 0 && shouldIncludeSubcategories(cat.id);
       const relevantIds = includeChildren ? [cat.id, ...descendantIds] : [cat.id];
-      tasksToShow = todos.filter(t => relevantIds.includes(t.categoryId));
+      tasksToShow = todos.filter(t => !t.archived && relevantIds.includes(t.categoryId));
       showCategoryLabel = includeChildren;
     } else if (currentView.type === 'tag') {
       categoryHeader.style.display = 'none';
@@ -1563,14 +1716,14 @@
       allHeader.style.display = 'none';
       addRow.style.display = 'none';
       document.getElementById('tag-view-title').textContent = '#' + currentView.value;
-      tasksToShow = todos.filter(t => (t.tags || []).includes(currentView.value));
+      tasksToShow = todos.filter(t => !t.archived && (t.tags || []).includes(currentView.value));
       showCategoryLabel = true;
     } else if (currentView.type === 'all') {
       categoryHeader.style.display = 'none';
       tagHeader.style.display = 'none';
       allHeader.style.display = 'block';
       addRow.style.display = 'none';
-      tasksToShow = todos;
+      tasksToShow = todos.filter(t => !t.archived);
       showCategoryLabel = true;
     }
 
@@ -1644,6 +1797,13 @@
     dueWrap.appendChild(dueLabel);
     dueWrap.appendChild(dueInput);
     metaRow.appendChild(dueWrap);
+
+    if (task.done && task.completedAt) {
+      const completedMeta = document.createElement('span');
+      completedMeta.className = 'task-meta';
+      completedMeta.textContent = 'COMPLETED ' + formatCompletedDate(task.completedAt);
+      metaRow.appendChild(completedMeta);
+    }
 
     const tagsWrap = document.createElement('span');
     tagsWrap.className = 'task-tags-wrap';
