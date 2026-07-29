@@ -900,7 +900,6 @@
     </div>
 
     <div class="all-tasks-row" id="all-tasks-btn"><span class="square"></span> All tasks</div>
-    <div class="all-tasks-row" id="archived-btn"><span class="square"></span> Archived</div>
 
     <div class="sidebar-section">
       <div class="sidebar-section-title-row">
@@ -913,9 +912,14 @@
       <ul id="category-tree"></ul>
     </div>
 
+    <div class="all-tasks-row" id="archived-btn"><span class="square"></span> Archived</div>
+
     <div class="sidebar-section">
       <div class="sidebar-section-title-row">
-        <span class="sidebar-section-title">Tags</span>
+        <div class="sidebar-section-title-clickable" id="tags-section-toggle">
+          <span class="caret" id="tags-caret">▾</span>
+          <span class="sidebar-section-title">Tags</span>
+        </div>
       </div>
       <ul id="tag-list"></ul>
     </div>
@@ -1132,6 +1136,7 @@
   const collapsed = new Set();
   const includeSubcategories = new Map();
   let categoriesSectionCollapsed = true;
+  let tagsSectionCollapsed = false;
 
   function shouldIncludeSubcategories(catId) {
     return includeSubcategories.has(catId) ? includeSubcategories.get(catId) : true;
@@ -1192,6 +1197,9 @@
   const categoryTreeEl = document.getElementById('category-tree');
   const categoriesSectionToggle = document.getElementById('categories-section-toggle');
   const categoriesCaret = document.getElementById('categories-caret');
+  const tagListEl = document.getElementById('tag-list');
+  const tagsSectionToggle = document.getElementById('tags-section-toggle');
+  const tagsCaret = document.getElementById('tags-caret');
 
   sortSelect.addEventListener('change', () => {
     sortMode = sortSelect.value;
@@ -1263,6 +1271,12 @@
     const at = a.createdAt ? a.createdAt.toMillis() : 0;
     const bt = b.createdAt ? b.createdAt.toMillis() : 0;
     return at - bt;
+  }
+
+  function byCompletedAtDesc(a, b) {
+    const at = a.completedAt ? a.completedAt.toMillis() : 0;
+    const bt = b.completedAt ? b.completedAt.toMillis() : 0;
+    return bt - at;
   }
 
   function getDescendantIds(categoryId) {
@@ -1462,6 +1476,16 @@
     applyCategoriesSectionCollapse();
   });
   applyCategoriesSectionCollapse();
+
+  function applyTagsSectionCollapse() {
+    tagListEl.style.display = tagsSectionCollapsed ? 'none' : 'block';
+    tagsCaret.classList.toggle('collapsed', tagsSectionCollapsed);
+  }
+  tagsSectionToggle.addEventListener('click', () => {
+    tagsSectionCollapsed = !tagsSectionCollapsed;
+    applyTagsSectionCollapse();
+  });
+  applyTagsSectionCollapse();
 
   // ---------------- Task actions ----------------
   async function addTask() {
@@ -1964,7 +1988,10 @@
       : 'No tasks queued. Add one above to get started.';
 
     const activeTasks = sorted.filter(t => !t.done);
-    const completedTasks = sorted.filter(t => t.done);
+    const isAllView = currentView.type === 'all';
+    const completedTasks = isAllView
+      ? sorted.filter(t => t.done).sort(byCompletedAtDesc)
+      : sorted.filter(t => t.done);
 
     activeTasks.forEach((task) => {
       taskList.appendChild(buildTaskRow(task));
@@ -1973,7 +2000,9 @@
     if (completedTasks.length > 0) {
       const divider = document.createElement('li');
       divider.className = 'completed-divider';
-      divider.textContent = `Completed (${completedTasks.length})`;
+      divider.textContent = isAllView
+        ? `Completed tasks (${completedTasks.length})`
+        : `Completed (${completedTasks.length})`;
       taskList.appendChild(divider);
 
       completedTasks.forEach((task) => {
