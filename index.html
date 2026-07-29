@@ -495,7 +495,7 @@
     display: none;
   }
 
-  .add-row { display: flex; gap: 8px; margin-bottom: 20px; }
+  .add-row { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
 
   input[type="text"], input[type="email"], input[type="password"], .add-row input[type="date"] {
     width: 100%;
@@ -512,7 +512,7 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  .add-row input[type="text"] { flex: 1; width: auto; }
+  .add-row input[type="text"] { flex: 1 1 200px; width: auto; min-width: 0; }
   .add-row input[type="date"] { flex: 0 0 150px; width: auto; font-size: 13px; color: var(--ink-soft); }
   .add-row select {
     padding: 10px 10px;
@@ -836,7 +836,6 @@
   @media (max-width: 640px) {
     .app-shell { flex-direction: column; }
     .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
-    .add-row { flex-wrap: wrap; }
   }
 
   @media (prefers-reduced-motion: reduce) {
