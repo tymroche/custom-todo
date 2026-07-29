@@ -453,6 +453,22 @@
   .cat-badge.cat-teal   { color: var(--cat-teal-fg);   background: var(--cat-teal-bg); }
   .cat-badge.cat-grey   { color: var(--cat-grey-fg);   background: var(--cat-grey-bg); }
 
+  .cat-select {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    padding: 1px 7px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    max-width: 160px;
+  }
+  .cat-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
   .list-controls {
     display: flex;
     align-items: center;
@@ -1454,10 +1470,6 @@
       categoryId = currentView.value;
     } else if (currentView && currentView.type === 'all') {
       categoryId = newTaskCategory.value || null;
-      if (!categoryId) {
-        showError('Create a category first before adding a task.');
-        return;
-      }
     } else {
       return;
     }
@@ -1696,9 +1708,56 @@
     });
   }
 
+  function buildCategorySelect(task) {
+    const select = document.createElement('select');
+    select.className = 'cat-select';
+
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = 'UNCATEGORIZED';
+    select.appendChild(noneOpt);
+
+    function addOptions(parentId, depth) {
+      categories
+        .filter(c => c.parentId === parentId && !c.archived)
+        .sort(byCreatedAt)
+        .forEach((cat) => {
+          const opt = document.createElement('option');
+          opt.value = cat.id;
+          opt.textContent = (depth > 0 ? '—'.repeat(depth) + ' ' : '') + cat.name.toUpperCase();
+          select.appendChild(opt);
+          addOptions(cat.id, depth + 1);
+        });
+    }
+    addOptions(null, 0);
+
+    select.value = task.categoryId || '';
+
+    function applyColor() {
+      const cat = categories.find(c => c.id === select.value);
+      const color = cat ? categoryColor(cat) : 'grey';
+      select.style.color = `var(--cat-${color}-fg)`;
+      select.style.background = `var(--cat-${color}-bg)`;
+    }
+    applyColor();
+
+    select.addEventListener('change', () => {
+      applyColor();
+      updateDoc(doc(db, 'todos', task.id), { categoryId: select.value || null })
+        .catch((err) => showError(`Couldn't move task: ${err.message}`));
+    });
+
+    return select;
+  }
+
   function populateCategorySelect() {
     const previous = newTaskCategory.value;
     newTaskCategory.innerHTML = '';
+
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = 'Uncategorized';
+    newTaskCategory.appendChild(noneOpt);
 
     function addOptions(parentId, depth) {
       categories
@@ -1753,7 +1812,6 @@
     listControls.style.display = 'flex';
 
     let tasksToShow = [];
-    let showCategoryLabel = false;
 
     if (currentView.type === 'category') {
       const cat = categories.find(c => c.id === currentView.value);
@@ -1771,7 +1829,6 @@
       const includeChildren = descendantIds.length > 0 && shouldIncludeSubcategories(cat.id);
       const relevantIds = includeChildren ? [cat.id, ...descendantIds] : [cat.id];
       tasksToShow = todos.filter(t => !t.archived && relevantIds.includes(t.categoryId));
-      showCategoryLabel = includeChildren;
     } else if (currentView.type === 'tag') {
       categoryHeader.style.display = 'none';
       tagHeader.style.display = 'block';
@@ -1779,7 +1836,6 @@
       addRow.style.display = 'none';
       document.getElementById('tag-view-title').textContent = '#' + currentView.value;
       tasksToShow = todos.filter(t => !t.archived && (t.tags || []).includes(currentView.value));
-      showCategoryLabel = true;
     } else if (currentView.type === 'all') {
       categoryHeader.style.display = 'none';
       tagHeader.style.display = 'none';
@@ -1788,13 +1844,12 @@
       newTaskCategory.style.display = 'inline-block';
       populateCategorySelect();
       tasksToShow = todos.filter(t => !t.archived);
-      showCategoryLabel = true;
     }
 
-    renderTaskList(tasksToShow, showCategoryLabel);
+    renderTaskList(tasksToShow);
   }
 
-  function buildTaskRow(task, showCategoryLabel) {
+  function buildTaskRow(task) {
     const li = document.createElement('li');
     li.className = 'task' + (task.done ? ' done' : '');
 
@@ -1840,13 +1895,7 @@
     const metaRow = document.createElement('div');
     metaRow.className = 'task-meta-row';
 
-    if (showCategoryLabel) {
-      const cat = categories.find(c => c.id === task.categoryId);
-      const catMeta = document.createElement('span');
-      catMeta.className = 'cat-badge cat-' + categoryColor(cat);
-      catMeta.textContent = cat ? cat.name.toUpperCase() : '';
-      metaRow.appendChild(catMeta);
-    }
+    metaRow.appendChild(buildCategorySelect(task));
 
     const dueWrap = document.createElement('span');
     dueWrap.className = 'due-wrap';
@@ -1903,7 +1952,7 @@
     return li;
   }
 
-  function renderTaskList(tasks, showCategoryLabel) {
+  function renderTaskList(tasks) {
     taskList.innerHTML = '';
     const sorted = [...tasks].sort(getSortComparator());
 
@@ -1918,7 +1967,7 @@
     const completedTasks = sorted.filter(t => t.done);
 
     activeTasks.forEach((task) => {
-      taskList.appendChild(buildTaskRow(task, showCategoryLabel));
+      taskList.appendChild(buildTaskRow(task));
     });
 
     if (completedTasks.length > 0) {
@@ -1928,7 +1977,7 @@
       taskList.appendChild(divider);
 
       completedTasks.forEach((task) => {
-        taskList.appendChild(buildTaskRow(task, showCategoryLabel));
+        taskList.appendChild(buildTaskRow(task));
       });
     }
 
