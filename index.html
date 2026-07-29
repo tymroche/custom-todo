@@ -514,6 +514,22 @@
   }
   .add-row input[type="text"] { flex: 1; width: auto; }
   .add-row input[type="date"] { flex: 0 0 150px; width: auto; font-size: 13px; color: var(--ink-soft); }
+  .add-row select {
+    padding: 10px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    background: var(--input-bg);
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .add-row select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
 
   .btn-primary {
     background: var(--accent);
@@ -933,6 +949,14 @@
 
     <div class="add-row" id="add-row" style="display:none;">
       <input type="text" id="new-task-input" placeholder="Add a task…" autocomplete="off" />
+      <select id="new-task-category" style="display:none;"></select>
+      <select id="new-task-priority" title="Priority">
+        <option value="blank">No priority</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="urgent">Urgent</option>
+      </select>
       <input type="date" id="new-task-due" title="Due date (optional)" />
       <button class="btn-primary" id="add-task-btn">Add</button>
     </div>
@@ -1142,6 +1166,8 @@
   const addRow = document.getElementById('add-row');
   const newTaskInput = document.getElementById('new-task-input');
   const newTaskDue = document.getElementById('new-task-due');
+  const newTaskCategory = document.getElementById('new-task-category');
+  const newTaskPriority = document.getElementById('new-task-priority');
   const addTaskBtn = document.getElementById('add-task-btn');
   const allTasksBtn = document.getElementById('all-tasks-btn');
   const archivedBtn = document.getElementById('archived-btn');
@@ -1424,22 +1450,35 @@
 
   // ---------------- Task actions ----------------
   async function addTask() {
-    if (!currentView || currentView.type !== 'category') return;
+    let categoryId = null;
+    if (currentView && currentView.type === 'category') {
+      categoryId = currentView.value;
+    } else if (currentView && currentView.type === 'all') {
+      categoryId = newTaskCategory.value || null;
+      if (!categoryId) {
+        showError('Create a category first before adding a task.');
+        return;
+      }
+    } else {
+      return;
+    }
     const value = newTaskInput.value.trim();
     if (!value) return;
     const dueDate = newTaskDue.value || null;
+    const priority = newTaskPriority.value || 'blank';
     newTaskInput.value = '';
     newTaskDue.value = '';
+    newTaskPriority.value = 'blank';
     addTaskBtn.disabled = true;
     try {
       await addDoc(collection(db, 'todos'), {
         text: value,
         done: false,
-        categoryId: currentView.value,
+        categoryId: categoryId,
         uid: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         dueDate: dueDate,
-        priority: 'blank',
+        priority: priority,
         tags: [],
         archived: false,
         completedAt: null
@@ -1658,6 +1697,29 @@
     });
   }
 
+  function populateCategorySelect() {
+    const previous = newTaskCategory.value;
+    newTaskCategory.innerHTML = '';
+
+    function addOptions(parentId, depth) {
+      categories
+        .filter(c => c.parentId === parentId && !c.archived)
+        .sort(byCreatedAt)
+        .forEach((cat) => {
+          const opt = document.createElement('option');
+          opt.value = cat.id;
+          opt.textContent = (depth > 0 ? '—'.repeat(depth) + ' ' : '') + cat.name;
+          newTaskCategory.appendChild(opt);
+          addOptions(cat.id, depth + 1);
+        });
+    }
+    addOptions(null, 0);
+
+    if ([...newTaskCategory.options].some(o => o.value === previous)) {
+      newTaskCategory.value = previous;
+    }
+  }
+
   function renderMain() {
     if (!currentView) {
       categoryHeader.style.display = 'none';
@@ -1701,6 +1763,7 @@
       tagHeader.style.display = 'none';
       allHeader.style.display = 'none';
       addRow.style.display = 'flex';
+      newTaskCategory.style.display = 'none';
       document.getElementById('view-title').textContent = cat.name;
       renderColorRow(cat);
 
@@ -1722,7 +1785,9 @@
       categoryHeader.style.display = 'none';
       tagHeader.style.display = 'none';
       allHeader.style.display = 'block';
-      addRow.style.display = 'none';
+      addRow.style.display = 'flex';
+      newTaskCategory.style.display = 'inline-block';
+      populateCategorySelect();
       tasksToShow = todos.filter(t => !t.archived);
       showCategoryLabel = true;
     }
