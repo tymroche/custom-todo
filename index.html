@@ -229,6 +229,7 @@
     opacity: 0.6;
     flex-shrink: 0;
   }
+  #archived-btn { margin-top: 6px; }
 
   .sidebar-section-title-row {
     display: flex;
@@ -900,6 +901,7 @@
     </div>
 
     <div class="all-tasks-row" id="all-tasks-btn"><span class="square"></span> All tasks</div>
+    <div class="all-tasks-row" id="completed-btn"><span class="square"></span> Completed</div>
 
     <div class="sidebar-section">
       <div class="sidebar-section-title-row">
@@ -909,10 +911,11 @@
         </div>
         <button class="icon-btn" id="add-category-btn" title="New category">+</button>
       </div>
-      <ul id="category-tree"></ul>
+      <div id="categories-collapsible">
+        <ul id="category-tree"></ul>
+        <div class="all-tasks-row" id="archived-btn"><span class="square"></span> Archived</div>
+      </div>
     </div>
-
-    <div class="all-tasks-row" id="archived-btn"><span class="square"></span> Archived</div>
 
     <div class="sidebar-section">
       <div class="sidebar-section-title-row">
@@ -954,6 +957,11 @@
       <p class="tag-subtitle">Restore a category to bring it (and its tasks) back</p>
       <ul id="archived-list"></ul>
       <p class="empty-state" id="archived-empty" style="display:none;">Nothing archived yet.</p>
+    </div>
+
+    <div id="completed-header" style="display:none;">
+      <h2>Completed</h2>
+      <p class="tag-subtitle">Everything you've checked off, most recent first</p>
     </div>
 
     <div class="list-controls" id="list-controls" style="display:none;">
@@ -1136,7 +1144,7 @@
   const collapsed = new Set();
   const includeSubcategories = new Map();
   let categoriesSectionCollapsed = true;
-  let tagsSectionCollapsed = false;
+  let tagsSectionCollapsed = true;
 
   function shouldIncludeSubcategories(catId) {
     return includeSubcategories.has(catId) ? includeSubcategories.get(catId) : true;
@@ -1190,11 +1198,13 @@
   const newTaskPriority = document.getElementById('new-task-priority');
   const addTaskBtn = document.getElementById('add-task-btn');
   const allTasksBtn = document.getElementById('all-tasks-btn');
+  const completedBtn = document.getElementById('completed-btn');
+  const completedHeader = document.getElementById('completed-header');
   const archivedBtn = document.getElementById('archived-btn');
   const archivedHeader = document.getElementById('archived-header');
   const archivedListEl = document.getElementById('archived-list');
   const archivedEmpty = document.getElementById('archived-empty');
-  const categoryTreeEl = document.getElementById('category-tree');
+  const categoriesCollapsibleEl = document.getElementById('categories-collapsible');
   const categoriesSectionToggle = document.getElementById('categories-section-toggle');
   const categoriesCaret = document.getElementById('categories-caret');
   const tagListEl = document.getElementById('tag-list');
@@ -1464,11 +1474,12 @@
     }
   });
   allTasksBtn.addEventListener('click', () => { currentView = { type: 'all' }; render(); });
+  completedBtn.addEventListener('click', () => { currentView = { type: 'completed' }; render(); });
   archivedBtn.addEventListener('click', () => { currentView = { type: 'archived' }; render(); });
 
 
   function applyCategoriesSectionCollapse() {
-    categoryTreeEl.style.display = categoriesSectionCollapsed ? 'none' : 'block';
+    categoriesCollapsibleEl.style.display = categoriesSectionCollapsed ? 'none' : 'block';
     categoriesCaret.classList.toggle('collapsed', categoriesSectionCollapsed);
   }
   categoriesSectionToggle.addEventListener('click', () => {
@@ -1557,6 +1568,7 @@
     renderCategoryTree();
     renderMain();
     allTasksBtn.classList.toggle('active', !!(currentView && currentView.type === 'all'));
+    completedBtn.classList.toggle('active', !!(currentView && currentView.type === 'completed'));
     archivedBtn.classList.toggle('active', !!(currentView && currentView.type === 'archived'));
   }
 
@@ -1808,6 +1820,7 @@
       tagHeader.style.display = 'none';
       allHeader.style.display = 'none';
       archivedHeader.style.display = 'none';
+      completedHeader.style.display = 'none';
       addRow.style.display = 'none';
       statusLine.style.display = 'none';
       listControls.style.display = 'none';
@@ -1822,6 +1835,7 @@
       categoryHeader.style.display = 'none';
       tagHeader.style.display = 'none';
       allHeader.style.display = 'none';
+      completedHeader.style.display = 'none';
       addRow.style.display = 'none';
       statusLine.style.display = 'none';
       listControls.style.display = 'none';
@@ -1834,6 +1848,7 @@
     archivedHeader.style.display = 'none';
     statusLine.style.display = 'inline-block';
     listControls.style.display = 'flex';
+    sortSelect.style.display = 'inline-block';
 
     let tasksToShow = [];
 
@@ -1843,6 +1858,7 @@
       categoryHeader.style.display = 'block';
       tagHeader.style.display = 'none';
       allHeader.style.display = 'none';
+      completedHeader.style.display = 'none';
       addRow.style.display = 'flex';
       newTaskCategory.style.display = 'none';
       document.getElementById('view-title').textContent = cat.name;
@@ -1857,6 +1873,7 @@
       categoryHeader.style.display = 'none';
       tagHeader.style.display = 'block';
       allHeader.style.display = 'none';
+      completedHeader.style.display = 'none';
       addRow.style.display = 'none';
       document.getElementById('tag-view-title').textContent = '#' + currentView.value;
       tasksToShow = todos.filter(t => !t.archived && (t.tags || []).includes(currentView.value));
@@ -1864,10 +1881,19 @@
       categoryHeader.style.display = 'none';
       tagHeader.style.display = 'none';
       allHeader.style.display = 'block';
+      completedHeader.style.display = 'none';
       addRow.style.display = 'flex';
       newTaskCategory.style.display = 'inline-block';
       populateCategorySelect();
-      tasksToShow = todos.filter(t => !t.archived);
+      tasksToShow = todos.filter(t => !t.archived && !t.done);
+    } else if (currentView.type === 'completed') {
+      categoryHeader.style.display = 'none';
+      tagHeader.style.display = 'none';
+      allHeader.style.display = 'none';
+      completedHeader.style.display = 'block';
+      addRow.style.display = 'none';
+      sortSelect.style.display = 'none';
+      tasksToShow = todos.filter(t => !t.archived && t.done);
     }
 
     renderTaskList(tasksToShow);
@@ -1978,20 +2004,27 @@
 
   function renderTaskList(tasks) {
     taskList.innerHTML = '';
+
+    if (currentView.type === 'completed') {
+      const sorted = [...tasks].sort(byCompletedAtDesc);
+      emptyState.style.display = sorted.length === 0 ? 'block' : 'none';
+      emptyState.textContent = 'Nothing completed yet.';
+      sorted.forEach((task) => taskList.appendChild(buildTaskRow(task)));
+      statusLine.textContent = `${sorted.length} completed`;
+      return;
+    }
+
     const sorted = [...tasks].sort(getSortComparator());
 
     emptyState.style.display = sorted.length === 0 ? 'block' : 'none';
     emptyState.textContent = currentView.type === 'all'
-      ? 'No tasks anywhere yet. Create a category and add one.'
+      ? 'No active tasks right now.'
       : currentView.type === 'tag'
       ? 'No tasks tagged here yet.'
       : 'No tasks queued. Add one above to get started.';
 
     const activeTasks = sorted.filter(t => !t.done);
-    const isAllView = currentView.type === 'all';
-    const completedTasks = isAllView
-      ? sorted.filter(t => t.done).sort(byCompletedAtDesc)
-      : sorted.filter(t => t.done);
+    const completedTasks = sorted.filter(t => t.done);
 
     activeTasks.forEach((task) => {
       taskList.appendChild(buildTaskRow(task));
@@ -2000,9 +2033,7 @@
     if (completedTasks.length > 0) {
       const divider = document.createElement('li');
       divider.className = 'completed-divider';
-      divider.textContent = isAllView
-        ? `Completed tasks (${completedTasks.length})`
-        : `Completed (${completedTasks.length})`;
+      divider.textContent = `Completed (${completedTasks.length})`;
       taskList.appendChild(divider);
 
       completedTasks.forEach((task) => {
