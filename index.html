@@ -347,10 +347,15 @@
     font-size: 13px;
     padding: 2px 5px;
     border-radius: 4px;
-    opacity: 0;
   }
-  .cat-row:hover .row-add-btn { opacity: 1; }
   .row-add-btn:hover { background: var(--accent); color: white; }
+  @media (hover: hover) and (pointer: fine) {
+    .row-add-btn { opacity: 0; }
+    .cat-row:hover .row-add-btn { opacity: 1; }
+  }
+  @media (hover: none) {
+    .row-add-btn { opacity: 0.55; }
+  }
 
   /* ---------- Main panel ---------- */
   .main-panel {
@@ -705,6 +710,26 @@
   .task-text { font-size: 14.5px; color: var(--ink); word-break: break-word; }
   .task.done .task-text { color: var(--ink-soft); text-decoration: line-through; }
 
+  .task-desc-input {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    padding: 2px 5px;
+    border-radius: 4px;
+    margin: 1px 0 2px;
+  }
+  .task-desc-input::placeholder { color: var(--ink-faint); }
+  .task-desc-input:hover { background: var(--border); }
+  .task-desc-input:focus {
+    outline: none;
+    background: var(--input-bg);
+    box-shadow: 0 0 0 1px var(--border);
+  }
+
   .task-meta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-left: 17px; }
 
   .task-meta {
@@ -771,7 +796,6 @@
     background: none;
     border: none;
     color: var(--ink-soft);
-    opacity: 0;
     cursor: pointer;
     font-size: 16px;
     line-height: 1;
@@ -780,9 +804,15 @@
     margin-top: 1px;
     transition: opacity 0.1s ease, color 0.1s ease;
   }
-  li.task:hover .delete-btn { opacity: 1; }
   .delete-btn:hover { color: var(--danger); }
   .delete-btn:focus-visible { opacity: 1; outline: 2px solid var(--accent); }
+  @media (hover: hover) and (pointer: fine) {
+    .delete-btn { opacity: 0; }
+    li.task:hover .delete-btn { opacity: 1; }
+  }
+  @media (hover: none) {
+    .delete-btn { opacity: 0.55; }
+  }
 
   .empty-state {
     color: var(--ink-soft);
@@ -1527,7 +1557,8 @@
         priority: priority,
         tags: [],
         archived: false,
-        completedAt: null
+        completedAt: null,
+        description: ''
       });
     } catch (err) {
       showError(`Couldn't add task: ${err.message}`);
@@ -1941,6 +1972,22 @@
     topRow.appendChild(text);
 
     body.appendChild(topRow);
+
+    const descInput = document.createElement('input');
+    descInput.type = 'text';
+    descInput.className = 'task-desc-input';
+    descInput.placeholder = 'Add a description…';
+    descInput.value = task.description || '';
+    descInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') descInput.blur();
+    });
+    descInput.addEventListener('blur', () => {
+      if (descInput.value !== (task.description || '')) {
+        updateDoc(doc(db, 'todos', task.id), { description: descInput.value })
+          .catch((err) => showError(`Couldn't update description: ${err.message}`));
+      }
+    });
+    body.appendChild(descInput);
 
     const metaRow = document.createElement('div');
     metaRow.className = 'task-meta-row';
